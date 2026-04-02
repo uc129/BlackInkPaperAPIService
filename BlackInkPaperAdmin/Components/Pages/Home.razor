@@ -1,0 +1,17 @@
+@page "/"
+@inject NavigationManager Navigation
+@inject AdminSession Session
+
+<PageTitle>Admin Home</PageTitle>
+
+<h1>Admin Home</h1>
+
+<p class="muted">Redirecting...</p>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await Session.EnsureLoadedAsync();
+        Navigation.NavigateTo(Session.IsAuthenticated ? "/products" : "/login", true);
+    }
+}

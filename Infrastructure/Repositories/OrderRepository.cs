@@ -1,0 +1,711 @@
+using Dapper;
+using Domain.Aggregates.Ecommerce;
+using Infrastructure.Contracts.Repositories;
+using Infrastructure.Persistence;
+
+namespace Infrastructure.Repositories;
+
+public class OrderRepository(IDapperContext dapperContext) : IOrderRepository
+{
+    public async Task<int> Add(OrderAggregate order)
+    {
+        const string insertOrderSql = """
+            INSERT INTO Orders
+            (
+                OrderNumber,
+                UserId,
+                ShippingAddressId,
+                CurrencyCode,
+                Status,
+                PaymentStatus,
+                PaymentProvider,
+                RazorpayOrderId,
+                RazorpayPaymentId,
+                RazorpaySignature,
+                PaymentMethod,
+                PaidAt,
+                PaymentFailureReason,
+                Subtotal,
+                ShippingAmount,
+                ShippingMethod,
+                ShippingLabel,
+                TaxAmount,
+                TaxLabel,
+                TaxRatePercent,
+                TotalAmount,
+                Notes,
+                CreatedAt,
+                UpdatedAt
+            )
+            VALUES
+            (
+                @OrderNumber,
+                @UserId,
+                @ShippingAddressId,
+                @CurrencyCode,
+                @Status,
+                @PaymentStatus,
+                @PaymentProvider,
+                @RazorpayOrderId,
+                @RazorpayPaymentId,
+                @RazorpaySignature,
+                @PaymentMethod,
+                @PaidAt,
+                @PaymentFailureReason,
+                @Subtotal,
+                @ShippingAmount,
+                @ShippingMethod,
+                @ShippingLabel,
+                @TaxAmount,
+                @TaxLabel,
+                @TaxRatePercent,
+                @TotalAmount,
+                @Notes,
+                @CreatedAt,
+                @UpdatedAt
+            );
+
+            SELECT CAST(SCOPE_IDENTITY() AS int);
+            """;
+
+        const string insertOrderItemSql = """
+            INSERT INTO OrderItems
+            (
+                OrderId,
+                ProductDbId,
+                ProductId,
+                Name,
+                Slug,
+                CoverImageUrl,
+                CurrencyCode,
+                BasePrice,
+                UnitPrice,
+                Quantity,
+                LineTotal,
+                Sku,
+                FulfillmentType
+            )
+            VALUES
+            (
+                @OrderId,
+                @ProductDbId,
+                @ProductId,
+                @Name,
+                @Slug,
+                @CoverImageUrl,
+                @CurrencyCode,
+                @BasePrice,
+                @UnitPrice,
+                @Quantity,
+                @LineTotal,
+                @Sku,
+                @FulfillmentType
+            );
+
+            SELECT CAST(SCOPE_IDENTITY() AS int);
+            """;
+
+        const string insertSelectedVariantSql = """
+            INSERT INTO OrderItemSelectedVariants
+            (
+                OrderItemId,
+                ProductVariantId,
+                ProductVariantOptionId,
+                VariantLabel,
+                OptionValue,
+                PriceModifier,
+                AbsolutePrice,
+                Sku,
+                FulfillmentType
+            )
+            VALUES
+            (
+                @OrderItemId,
+                @ProductVariantId,
+                @ProductVariantOptionId,
+                @VariantLabel,
+                @OptionValue,
+                @PriceModifier,
+                @AbsolutePrice,
+                @Sku,
+                @FulfillmentType
+            );
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        try
+        {
+            var orderId = await connection.ExecuteScalarAsync<int>(insertOrderSql, order, transaction);
+
+            foreach (var item in order.Items)
+            {
+                var orderItemId = await connection.ExecuteScalarAsync<int>(insertOrderItemSql, new
+                {
+                    OrderId = orderId,
+                    item.ProductDbId,
+                    item.ProductId,
+                    item.Name,
+                    item.Slug,
+                    item.CoverImageUrl,
+                    item.CurrencyCode,
+                    item.BasePrice,
+                    item.UnitPrice,
+                    item.Quantity,
+                    item.LineTotal,
+                    item.Sku,
+                    item.FulfillmentType
+                }, transaction);
+
+                foreach (var variant in item.SelectedVariants)
+                {
+                    await connection.ExecuteAsync(insertSelectedVariantSql, new
+                    {
+                        OrderItemId = orderItemId,
+                        variant.ProductVariantId,
+                        variant.ProductVariantOptionId,
+                        variant.VariantLabel,
+                        variant.OptionValue,
+                        variant.PriceModifier,
+                        variant.AbsolutePrice,
+                        variant.Sku,
+                        variant.FulfillmentType
+                    }, transaction);
+                }
+            }
+
+            transaction.Commit();
+            return orderId;
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
+    public async Task<OrderAggregate?> GetById(int id, string userId)
+        => await GetSingleInternal("o.Id = @Value AND o.UserId = @UserId", new { Value = id, UserId = userId });
+
+    public async Task<OrderAggregate?> GetById(int id)
+        => await GetSingleInternal("o.Id = @Value", new { Value = id });
+
+    public async Task<OrderAggregate?> GetByRazorpayOrderId(string razorpayOrderId)
+        => await GetSingleInternal("o.RazorpayOrderId = @Value", new { Value = razorpayOrderId });
+
+    public async Task<IEnumerable<OrderAggregate>> GetByUserId(string userId)
+        => await GetOrdersListInternal("o.UserId = @UserId", new { UserId = userId });
+
+    public async Task<bool> MarkPaymentPending(int orderId, string paymentProvider, string razorpayOrderId, DateTime updatedAt)
+    {
+        const string sql = """
+            UPDATE Orders
+            SET
+                PaymentProvider = @PaymentProvider,
+                RazorpayOrderId = @RazorpayOrderId,
+                PaymentStatus = 'Pending',
+                UpdatedAt = @UpdatedAt
+            WHERE Id = @OrderId;
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        var affected = await connection.ExecuteAsync(sql, new
+        {
+            OrderId = orderId,
+            PaymentProvider = paymentProvider,
+            RazorpayOrderId = razorpayOrderId,
+            UpdatedAt = updatedAt
+        });
+
+        return affected > 0;
+    }
+
+    public async Task<bool> MarkPaymentAuthorized(int orderId, string razorpayPaymentId, string? razorpaySignature, string? paymentMethod, DateTime updatedAt)
+    {
+        const string sql = """
+            UPDATE Orders
+            SET
+                Status = CASE WHEN Status = 'PendingPayment' THEN 'PaymentAuthorized' ELSE Status END,
+                PaymentStatus = CASE WHEN PaymentStatus IN ('Pending', 'Authorized') THEN 'Authorized' ELSE PaymentStatus END,
+                RazorpayPaymentId = COALESCE(@RazorpayPaymentId, RazorpayPaymentId),
+                RazorpaySignature = COALESCE(@RazorpaySignature, RazorpaySignature),
+                PaymentMethod = COALESCE(@PaymentMethod, PaymentMethod),
+                UpdatedAt = @UpdatedAt
+            WHERE Id = @OrderId;
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        var affected = await connection.ExecuteAsync(sql, new
+        {
+            OrderId = orderId,
+            RazorpayPaymentId = razorpayPaymentId,
+            RazorpaySignature = razorpaySignature,
+            PaymentMethod = paymentMethod,
+            UpdatedAt = updatedAt
+        });
+
+        return affected > 0;
+    }
+
+    public async Task<bool> MarkPaymentCapturedAndApplyInventory(int orderId, string razorpayPaymentId, string? razorpaySignature, string? paymentMethod, DateTime paidAt, DateTime updatedAt)
+    {
+        using var connection = dapperContext.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        try
+        {
+            var order = await GetOrderForUpdate(connection, transaction, orderId);
+            if (order is null)
+            {
+                transaction.Rollback();
+                return false;
+            }
+
+            if (string.Equals(order.PaymentStatus, "Captured", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(order.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase))
+            {
+                transaction.Commit();
+                return true;
+            }
+
+            foreach (var item in order.Items)
+            {
+                await ApplyInventoryForOrderItem(connection, transaction, order.Id, item, updatedAt);
+            }
+
+            const string updateOrderSql = """
+                UPDATE Orders
+                SET
+                    Status = 'Paid',
+                    PaymentStatus = 'Captured',
+                    RazorpayPaymentId = COALESCE(@RazorpayPaymentId, RazorpayPaymentId),
+                    RazorpaySignature = COALESCE(@RazorpaySignature, RazorpaySignature),
+                    PaymentMethod = COALESCE(@PaymentMethod, PaymentMethod),
+                    PaidAt = @PaidAt,
+                    UpdatedAt = @UpdatedAt
+                WHERE Id = @OrderId;
+                """;
+
+            await connection.ExecuteAsync(updateOrderSql, new
+            {
+                OrderId = orderId,
+                RazorpayPaymentId = razorpayPaymentId,
+                RazorpaySignature = razorpaySignature,
+                PaymentMethod = paymentMethod,
+                PaidAt = paidAt,
+                UpdatedAt = updatedAt
+            }, transaction);
+
+            transaction.Commit();
+            return true;
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
+    public async Task<bool> MarkPaymentFailed(int orderId, string? razorpayPaymentId, string? failureReason, DateTime updatedAt)
+    {
+        const string sql = """
+            UPDATE Orders
+            SET
+                Status = CASE WHEN Status = 'PendingPayment' THEN 'PaymentFailed' ELSE Status END,
+                PaymentStatus = 'Failed',
+                RazorpayPaymentId = COALESCE(@RazorpayPaymentId, RazorpayPaymentId),
+                PaymentFailureReason = @FailureReason,
+                UpdatedAt = @UpdatedAt
+            WHERE Id = @OrderId;
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        var affected = await connection.ExecuteAsync(sql, new
+        {
+            OrderId = orderId,
+            RazorpayPaymentId = razorpayPaymentId,
+            FailureReason = failureReason,
+            UpdatedAt = updatedAt
+        });
+
+        return affected > 0;
+    }
+
+    public async Task<bool> HasProcessedWebhookEvent(string provider, string eventId)
+    {
+        const string sql = """
+            SELECT CAST(CASE WHEN EXISTS
+            (
+                SELECT 1
+                FROM PaymentWebhookEvents
+                WHERE Provider = @Provider AND EventId = @EventId
+            ) THEN 1 ELSE 0 END AS bit);
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        return await connection.ExecuteScalarAsync<bool>(sql, new { Provider = provider, EventId = eventId });
+    }
+
+    public async Task RecordWebhookEvent(string provider, string eventId, string eventName, DateTime processedAt)
+    {
+        const string sql = """
+            INSERT INTO PaymentWebhookEvents (Provider, EventId, EventName, ProcessedAt)
+            VALUES (@Provider, @EventId, @EventName, @ProcessedAt);
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        await connection.ExecuteAsync(sql, new { Provider = provider, EventId = eventId, EventName = eventName, ProcessedAt = processedAt });
+    }
+
+    private async Task<OrderAggregate?> GetSingleInternal(string whereClause, object parameters)
+    {
+        var orders = await GetOrdersListInternal(whereClause, parameters);
+        return orders.FirstOrDefault();
+    }
+
+    private async Task<List<OrderAggregate>> GetOrdersListInternal(string whereClause, object parameters)
+    {
+        var sql = $"""
+            SELECT
+                o.Id,
+                o.OrderNumber,
+                o.UserId,
+                o.ShippingAddressId,
+                o.CurrencyCode,
+                o.Status,
+                o.PaymentStatus,
+                o.PaymentProvider,
+                o.RazorpayOrderId,
+                o.RazorpayPaymentId,
+                o.RazorpaySignature,
+                o.PaymentMethod,
+                o.PaidAt,
+                o.PaymentFailureReason,
+                o.Subtotal,
+                o.ShippingAmount,
+                o.ShippingMethod,
+                o.ShippingLabel,
+                o.TaxAmount,
+                o.TaxLabel,
+                o.TaxRatePercent,
+                o.TotalAmount,
+                o.Notes,
+                o.CreatedAt,
+                o.UpdatedAt,
+                a.UserId AS AddressUserId,
+                a.FullName,
+                a.PhoneNumber,
+                a.AddressLine1,
+                a.AddressLine2,
+                a.City,
+                a.State,
+                a.PostalCode,
+                a.CountryCode,
+                a.Landmark,
+                a.IsDefault,
+                a.CreatedAt AS AddressCreatedAt,
+                a.UpdatedAt AS AddressUpdatedAt
+            FROM Orders o
+            INNER JOIN ShippingAddresses a ON a.Id = o.ShippingAddressId
+            WHERE {whereClause}
+            ORDER BY o.Id DESC;
+
+            SELECT oi.*
+            FROM OrderItems oi
+            INNER JOIN Orders o ON o.Id = oi.OrderId
+            WHERE {whereClause}
+            ORDER BY oi.Id;
+
+            SELECT osv.*
+            FROM OrderItemSelectedVariants osv
+            INNER JOIN OrderItems oi ON oi.Id = osv.OrderItemId
+            INNER JOIN Orders o ON o.Id = oi.OrderId
+            WHERE {whereClause}
+            ORDER BY osv.Id;
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        await using var multi = await connection.QueryMultipleAsync(sql, parameters);
+
+        var orderRows = (await multi.ReadAsync<OrderWithAddressRow>()).ToList();
+        var itemRows = (await multi.ReadAsync<OrderItemAggregate>()).ToList();
+        var variantRows = (await multi.ReadAsync<OrderItemSelectedVariantAggregate>()).ToList();
+
+        var orders = orderRows.Select(row => new OrderAggregate
+        {
+            Id = row.Id,
+            OrderNumber = row.OrderNumber,
+            UserId = row.UserId,
+            ShippingAddressId = row.ShippingAddressId,
+            CurrencyCode = row.CurrencyCode,
+            Status = row.Status,
+            PaymentStatus = row.PaymentStatus,
+            PaymentProvider = row.PaymentProvider,
+            RazorpayOrderId = row.RazorpayOrderId,
+            RazorpayPaymentId = row.RazorpayPaymentId,
+            RazorpaySignature = row.RazorpaySignature,
+            PaymentMethod = row.PaymentMethod,
+            PaidAt = row.PaidAt,
+            PaymentFailureReason = row.PaymentFailureReason,
+            Subtotal = row.Subtotal,
+            ShippingAmount = row.ShippingAmount,
+            ShippingMethod = row.ShippingMethod,
+            ShippingLabel = row.ShippingLabel,
+            TaxAmount = row.TaxAmount,
+            TaxLabel = row.TaxLabel,
+            TaxRatePercent = row.TaxRatePercent,
+            TotalAmount = row.TotalAmount,
+            Notes = row.Notes,
+            CreatedAt = row.CreatedAt,
+            UpdatedAt = row.UpdatedAt,
+            ShippingAddress = new ShippingAddressAggregate
+            {
+                Id = row.ShippingAddressId,
+                UserId = row.AddressUserId,
+                FullName = row.FullName,
+                PhoneNumber = row.PhoneNumber,
+                AddressLine1 = row.AddressLine1,
+                AddressLine2 = row.AddressLine2,
+                City = row.City,
+                State = row.State,
+                PostalCode = row.PostalCode,
+                CountryCode = row.CountryCode,
+                Landmark = row.Landmark,
+                IsDefault = row.IsDefault,
+                CreatedAt = row.AddressCreatedAt,
+                UpdatedAt = row.AddressUpdatedAt
+            }
+        }).ToList();
+
+        foreach (var order in orders)
+        {
+            order.Items = itemRows.Where(item => item.OrderId == order.Id).ToList();
+            foreach (var item in order.Items)
+            {
+                item.SelectedVariants = variantRows.Where(variant => variant.OrderItemId == item.Id).ToList();
+            }
+        }
+
+        return orders;
+    }
+
+    private static async Task<OrderAggregate?> GetOrderForUpdate(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, int orderId)
+    {
+        const string sql = """
+            SELECT *
+            FROM Orders
+            WHERE Id = @OrderId;
+
+            SELECT *
+            FROM OrderItems
+            WHERE OrderId = @OrderId
+            ORDER BY Id;
+
+            SELECT osv.*
+            FROM OrderItemSelectedVariants osv
+            INNER JOIN OrderItems oi ON oi.Id = osv.OrderItemId
+            WHERE oi.OrderId = @OrderId
+            ORDER BY osv.Id;
+            """;
+
+        await using var multi = await connection.QueryMultipleAsync(sql, new { OrderId = orderId }, transaction);
+        var order = await multi.ReadSingleOrDefaultAsync<OrderAggregate>();
+        if (order is null)
+        {
+            return null;
+        }
+
+        order.Items = (await multi.ReadAsync<OrderItemAggregate>()).ToList();
+        var variants = (await multi.ReadAsync<OrderItemSelectedVariantAggregate>()).ToList();
+
+        foreach (var item in order.Items)
+        {
+            item.SelectedVariants = variants.Where(variant => variant.OrderItemId == item.Id).ToList();
+        }
+
+        return order;
+    }
+
+    private static async Task ApplyInventoryForOrderItem(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, int orderId, OrderItemAggregate item, DateTime createdAt)
+    {
+        var physicalVariants = item.SelectedVariants
+            .Where(variant => string.Equals(variant.FulfillmentType, "physical", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (physicalVariants.Count > 0)
+        {
+            var decrementedAnyVariant = false;
+
+            foreach (var variant in physicalVariants)
+            {
+                var trackedStock = await connection.ExecuteScalarAsync<int?>(
+                    "SELECT StockQuantity FROM ProductVariantOptions WHERE Id = @Id;",
+                    new { Id = variant.ProductVariantOptionId },
+                    transaction);
+
+                if (!trackedStock.HasValue)
+                {
+                    continue;
+                }
+
+                var updated = await connection.ExecuteAsync(
+                    """
+                    UPDATE ProductVariantOptions
+                    SET StockQuantity = StockQuantity - @Quantity
+                    WHERE Id = @Id AND StockQuantity >= @Quantity;
+                    """,
+                    new { Id = variant.ProductVariantOptionId, Quantity = item.Quantity },
+                    transaction);
+
+                if (updated == 0)
+                {
+                    throw new InvalidOperationException($"Insufficient stock for variant option {variant.ProductVariantOptionId}.");
+                }
+
+                await connection.ExecuteAsync(
+                    """
+                    INSERT INTO InventoryTransactions
+                    (
+                        OrderId,
+                        ProductDbId,
+                        ProductVariantOptionId,
+                        QuantityChange,
+                        Reason,
+                        CreatedAt
+                    )
+                    VALUES
+                    (
+                        @OrderId,
+                        @ProductDbId,
+                        @ProductVariantOptionId,
+                        @QuantityChange,
+                        @Reason,
+                        @CreatedAt
+                    );
+                    """,
+                    new
+                    {
+                        OrderId = orderId,
+                        ProductDbId = item.ProductDbId,
+                        ProductVariantOptionId = variant.ProductVariantOptionId,
+                        QuantityChange = -item.Quantity,
+                        Reason = "OrderPaymentCaptured",
+                        CreatedAt = createdAt
+                    },
+                    transaction);
+
+                decrementedAnyVariant = true;
+            }
+
+            if (decrementedAnyVariant)
+            {
+                return;
+            }
+        }
+
+        if (!string.Equals(item.FulfillmentType, "physical", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var productStock = await connection.ExecuteScalarAsync<int?>(
+            "SELECT StockQuantity FROM Products WHERE Id = @Id;",
+            new { Id = item.ProductDbId },
+            transaction);
+
+        if (!productStock.HasValue)
+        {
+            return;
+        }
+
+        var productUpdated = await connection.ExecuteAsync(
+            """
+            UPDATE Products
+            SET StockQuantity = StockQuantity - @Quantity
+            WHERE Id = @Id AND StockQuantity >= @Quantity;
+            """,
+            new { Id = item.ProductDbId, Quantity = item.Quantity },
+            transaction);
+
+        if (productUpdated == 0)
+        {
+            throw new InvalidOperationException($"Insufficient stock for product {item.ProductDbId}.");
+        }
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO InventoryTransactions
+            (
+                OrderId,
+                ProductDbId,
+                ProductVariantOptionId,
+                QuantityChange,
+                Reason,
+                CreatedAt
+            )
+            VALUES
+            (
+                @OrderId,
+                @ProductDbId,
+                NULL,
+                @QuantityChange,
+                @Reason,
+                @CreatedAt
+            );
+            """,
+            new
+            {
+                OrderId = orderId,
+                ProductDbId = item.ProductDbId,
+                QuantityChange = -item.Quantity,
+                Reason = "OrderPaymentCaptured",
+                CreatedAt = createdAt
+            },
+            transaction);
+    }
+
+    private sealed class OrderWithAddressRow
+    {
+        public int Id { get; init; }
+        public string OrderNumber { get; init; } = string.Empty;
+        public string UserId { get; init; } = string.Empty;
+        public int ShippingAddressId { get; init; }
+        public string CurrencyCode { get; init; } = "INR";
+        public string Status { get; init; } = string.Empty;
+        public string PaymentStatus { get; init; } = string.Empty;
+        public string? PaymentProvider { get; init; }
+        public string? RazorpayOrderId { get; init; }
+        public string? RazorpayPaymentId { get; init; }
+        public string? RazorpaySignature { get; init; }
+        public string? PaymentMethod { get; init; }
+        public DateTime? PaidAt { get; init; }
+        public string? PaymentFailureReason { get; init; }
+        public decimal Subtotal { get; init; }
+        public decimal ShippingAmount { get; init; }
+        public string? ShippingMethod { get; init; }
+        public string? ShippingLabel { get; init; }
+        public decimal TaxAmount { get; init; }
+        public string? TaxLabel { get; init; }
+        public decimal? TaxRatePercent { get; init; }
+        public decimal TotalAmount { get; init; }
+        public string? Notes { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public DateTime UpdatedAt { get; init; }
+        public string AddressUserId { get; init; } = string.Empty;
+        public string FullName { get; init; } = string.Empty;
+        public string PhoneNumber { get; init; } = string.Empty;
+        public string AddressLine1 { get; init; } = string.Empty;
+        public string? AddressLine2 { get; init; }
+        public string City { get; init; } = string.Empty;
+        public string State { get; init; } = string.Empty;
+        public string PostalCode { get; init; } = string.Empty;
+        public string CountryCode { get; init; } = "IN";
+        public string? Landmark { get; init; }
+        public bool IsDefault { get; init; }
+        public DateTime AddressCreatedAt { get; init; }
+        public DateTime AddressUpdatedAt { get; init; }
+    }
+}

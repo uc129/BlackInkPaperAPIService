@@ -1,0 +1,105 @@
+@page "/products"
+@inject ProductAdminApiClient ProductsApi
+@inject AdminSession Session
+@inject NavigationManager Navigation
+
+<PageTitle>Products</PageTitle>
+
+<h1>Products</h1>
+
+@if (!ready)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <section class="panel">
+        <div class="panel-toolbar">
+            <InputText @bind-Value="query" class="input" placeholder="Search by name, slug, or ProductId" />
+            <button class="button secondary" @onclick="LoadAsync">Search</button>
+            <button class="button" @onclick="@(() => Navigation.NavigateTo("/products/new"))">Create Product</button>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <p class="error-text">@errorMessage</p>
+        }
+
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>ProductId</th>
+                    <th>Slug</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Stock</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in items)
+                {
+                    <tr>
+                        <td>@item.Name</td>
+                        <td>@item.ProductId</td>
+                        <td>@item.Slug</td>
+                        <td>@item.Pricing.FinalPrice @item.Pricing.CurrencyCode</td>
+                        <td><span class="badge">@(item.Taxonomy.IsAvailable ? "Available" : "Draft")</span></td>
+                        <td>@(item.Stats.StockQuantity?.ToString() ?? "Untracked")</td>
+                        <td class="actions">
+                            <button class="button secondary slim" @onclick="@(() => Navigation.NavigateTo($"/products/{item.Id}"))">Edit</button>
+                            <button class="button danger slim" @onclick="@(() => DeleteAsync(item.Id))">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+}
+
+@code {
+    private bool ready;
+    private string? query;
+    private string? errorMessage;
+    private List<ProductSummaryDto> items = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Session.EnsureLoadedAsync();
+        if (!Session.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login", true);
+            return;
+        }
+
+        await LoadAsync();
+        ready = true;
+    }
+
+    private async Task LoadAsync()
+    {
+        var response = await ProductsApi.SearchAsync(Session, new ProductSearchRequest(query, null, null, null, null, null, null, 1, 30));
+        if (!response.Success || response.Data is null)
+        {
+            errorMessage = response.Message;
+            items = [];
+            return;
+        }
+
+        errorMessage = null;
+        items = response.Data.Items.ToList();
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        var response = await ProductsApi.DeleteAsync(Session, id);
+        if (!response.Success)
+        {
+            errorMessage = response.Message;
+            return;
+        }
+
+        await LoadAsync();
+    }
+}

@@ -1,0 +1,110 @@
+<EditForm Model="Model" OnValidSubmit="OnValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <p class="error-text">@ErrorMessage</p>
+    }
+
+    <div class="editor-grid">
+        <section class="panel">
+            <h2>Identity</h2>
+            <label>ProductId</label>
+            <InputText @bind-Value="Model.ProductId" class="input" />
+
+            <label>Name</label>
+            <InputText @bind-Value="Model.Name" class="input" />
+
+            <label>Slug</label>
+            <InputText @bind-Value="Model.Slug" class="input" />
+
+            <label>ArtistId</label>
+            <InputNumber @bind-Value="Model.ArtistId" class="input" />
+        </section>
+
+        <section class="panel">
+            <h2>Catalog</h2>
+            <label>CategoryId</label>
+            <InputNumber @bind-Value="Model.CategoryId" class="input" />
+
+            <label>SubCategoryId</label>
+            <InputNumber @bind-Value="Model.SubCategoryId" class="input" />
+
+            <label>ArtSpecId</label>
+            <InputNumber @bind-Value="Model.ArtSpecId" class="input" />
+
+            <label>Stock Quantity</label>
+            <InputNumber @bind-Value="Model.StockQuantity" class="input" />
+        </section>
+
+        <section class="panel">
+            <h2>Pricing</h2>
+            <label>Base Price</label>
+            <InputNumber @bind-Value="Model.BasePrice" class="input" />
+
+            <label>Final Price</label>
+            <InputNumber @bind-Value="Model.FinalPrice" class="input" />
+
+            <label>Currency</label>
+            <InputText @bind-Value="Model.CurrencyCode" class="input" />
+        </section>
+
+        <section class="panel">
+            <h2>Content</h2>
+            <label>NameCode</label>
+            <InputText @bind-Value="Model.NameCode" class="input" />
+
+            <label>Print Name</label>
+            <InputText @bind-Value="Model.PrintName" class="input" />
+
+            <label>Short Description</label>
+            <InputTextArea @bind-Value="Model.ShortDescription" class="input" />
+
+            <label>Description</label>
+            <InputTextArea @bind-Value="Model.Description" class="input" />
+        </section>
+
+        <section class="panel">
+            <h2>Media</h2>
+            <label>Cover Image Url</label>
+            <InputText @bind-Value="Model.CoverImageUrl" class="input" />
+
+            <label>Header Image Url</label>
+            <InputText @bind-Value="Model.HeaderImageUrl" class="input" />
+        </section>
+
+        <section class="panel">
+            <h2>Flags</h2>
+            <label class="check"><InputCheckbox @bind-Value="Model.IsAvailable" /> Available</label>
+            <label class="check"><InputCheckbox @bind-Value="Model.IsFeatured" /> Featured</label>
+            <label class="check"><InputCheckbox @bind-Value="Model.IsUsingStandardVariants" /> Using standard variants</label>
+        </section>
+
+        <section class="panel">
+            <h2>Art Specs</h2>
+            <label>Weight Grams</label>
+            <InputNumber @bind-Value="Model.WeightGrams" class="input" />
+
+            <label>Material</label>
+            <InputText @bind-Value="Model.Material" class="input" />
+
+            <label>File Format</label>
+            <InputText @bind-Value="Model.FileFormat" class="input" />
+
+            <label>Pixel Dimensions</label>
+            <InputText @bind-Value="Model.PixelDimensions" class="input" />
+        </section>
+    </div>
+
+    <div class="form-actions">
+        <button class="button">@SubmitLabel</button>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter, EditorRequired] public required ProductEditorModel Model { get; set; }
+    [Parameter, EditorRequired] public required string SubmitLabel { get; set; }
+    [Parameter, EditorRequired] public required EventCallback OnValidSubmit { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+}

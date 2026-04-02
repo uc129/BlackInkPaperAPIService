@@ -1,0 +1,48 @@
+@inject AdminSession Session
+@inject NavigationManager Navigation
+
+<div class="shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-mark">BIP</div>
+            <div>
+                <div class="brand-title">Admin Console</div>
+                <div class="brand-subtitle">Blazor backoffice</div>
+            </div>
+        </div>
+
+        <NavMenu />
+    </aside>
+
+    <main class="content">
+        <header class="topbar">
+            <div>
+                <div class="eyebrow">Black Ink Paper</div>
+                <div class="title">@CurrentTitle</div>
+            </div>
+
+            @if (Session.IsAuthenticated)
+            {
+                <div class="top-actions">
+                    <span class="pill">@Session.DisplayName</span>
+                    <button class="button secondary" @onclick="LogoutAsync">Logout</button>
+                </div>
+            }
+        </header>
+     
+    </main>
+</div>
+
+@code {
+    private string CurrentTitle => Navigation.ToBaseRelativePath(Navigation.Uri).Trim('/') switch
+    {
+        "" => "Dashboard",
+        var path => path.Replace('/', ' ')
+    };
+
+    private async Task LogoutAsync()
+    {
+        await Session.ClearAsync();
+        Navigation.NavigateTo("/login", true);
+    }
+}

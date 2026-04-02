@@ -1,0 +1,60 @@
+@page "/products/{Id:int}"
+@inject ProductAdminApiClient ProductsApi
+@inject AdminSession Session
+@inject NavigationManager Navigation
+
+<PageTitle>Edit Product</PageTitle>
+
+<h1>Edit Product</h1>
+
+@if (!loaded)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <ProductEditorForm Model="model" SubmitLabel="Save Changes" ErrorMessage="errorMessage" OnValidSubmit="SaveAsync" />
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool loaded;
+    private ProductEditorModel model = ProductEditorModel.CreateDefault();
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await Session.EnsureLoadedAsync();
+        if (!Session.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login", true);
+            return;
+        }
+
+        var response = await ProductsApi.GetByIdAsync(Session, Id);
+        if (!response.Success || response.Data is null)
+        {
+            errorMessage = response.Message;
+            loaded = true;
+            return;
+        }
+
+        model = ProductEditorModel.FromResponse(response.Data);
+        errorMessage = null;
+        loaded = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        var response = await ProductsApi.UpdateAsync(Session, Id, model.ToUpdateRequest());
+        if (!response.Success || response.Data is null)
+        {
+            errorMessage = response.Message;
+            return;
+        }
+
+        model = ProductEditorModel.FromResponse(response.Data);
+        errorMessage = null;
+    }
+}

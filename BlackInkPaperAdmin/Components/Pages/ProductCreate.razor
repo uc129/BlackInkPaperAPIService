@@ -1,0 +1,36 @@
+@page "/products/new"
+@inject ProductAdminApiClient ProductsApi
+@inject AdminSession Session
+@inject NavigationManager Navigation
+
+<PageTitle>Create Product</PageTitle>
+
+<h1>Create Product</h1>
+
+<ProductEditorForm Model="model" SubmitLabel="Create Product" ErrorMessage="errorMessage" OnValidSubmit="SaveAsync" />
+
+@code {
+    private readonly ProductEditorModel model = ProductEditorModel.CreateDefault();
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Session.EnsureLoadedAsync();
+        if (!Session.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login", true);
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        var response = await ProductsApi.CreateAsync(Session, model.ToCreateRequest());
+        if (!response.Success || response.Data is null)
+        {
+            errorMessage = response.Message;
+            return;
+        }
+
+        Navigation.NavigateTo($"/products/{response.Data.Id}", true);
+    }
+}
