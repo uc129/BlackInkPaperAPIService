@@ -11,7 +11,9 @@ public class AuthApiClient(HttpClient httpClient, IOptions<AdminApiOptions> opti
     public async Task<ApiEnvelope<AuthResponse>> LoginAsync(LoginRequest request)
     {
         using var response = await httpClient.PostAsJsonAsync($"{baseUrl}api/accounts/login", request);
-        return await ApiResponseReader.ReadAsync<AuthResponse>(response);
+        var responseString = await response.Content.ReadAsStringAsync();
+        var responseParsed = await ApiResponseReader.ReadAsync<AuthResponse>(response);
+        return responseParsed;
     }
 
     private static string Normalize(string url) => url.EndsWith('/') ? url : $"{url}/";

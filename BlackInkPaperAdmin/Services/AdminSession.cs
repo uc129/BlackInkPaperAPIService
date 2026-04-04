@@ -1,10 +1,11 @@
+using Microsoft.JSInterop;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 
 namespace BlackInkPaperAdmin.Services;
 
-public class AdminSession
+public class AdminSession(ILocalStorageService _localStorage)
 {
     public string? Token { get; private set; }
     public string DisplayName { get; private set; } = "User";
@@ -12,9 +13,19 @@ public class AdminSession
 
     public bool IsAuthenticated => !string.IsNullOrWhiteSpace(Token);
 
-    public Task EnsureLoadedAsync() => Task.CompletedTask;
+    public async Task EnsureLoadedAsync()
+    {
+        if (IsAuthenticated) return; // Already loaded
 
-    public Task SetTokenAsync(string token)
+        var token = await _localStorage.GetItemAsync<string>("authToken");
+        if (!string.IsNullOrEmpty(token))
+        {
+            Token = token;
+            // Optionally validate JWT expiration here
+        }
+    }
+
+    public async Task SetTokenAsync(string token)
     {
         Token = token;
         var claims = ParseClaims(token);
@@ -22,7 +33,8 @@ public class AdminSession
             ?? claims.FirstOrDefault(c => c.Type is "email" or ClaimTypes.Email)?.Value
             ?? "User";
         Roles = claims.Where(c => c.Type is ClaimTypes.Role or "role").Select(c => c.Value).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        return Task.CompletedTask;
+        await _localStorage.SetItemAsync("authToken", token);
+        return;
     }
 
     public Task ClearAsync()
@@ -30,6 +42,7 @@ public class AdminSession
         Token = null;
         DisplayName = "User";
         Roles = [];
+        _localStorage.RemoveItemAsync("authToken");
         return Task.CompletedTask;
     }
 

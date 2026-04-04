@@ -2,6 +2,7 @@
 using Infrastructure.Contracts.Repositories;
 using Infrastructure.Contracts.Services;
 using Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -70,8 +71,7 @@ namespace BlackInkPaperAPIService.Controllers
         [Authorize] // Only logged-in users can log out
         public async Task<IActionResult> Logout()
         {
-            // If you were using Cookies, you would clear them here:
-            // await HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
+             await HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
 
             // For JWT, we simply return a success message. 
             // The Frontend is responsible for removing the token from its storage.

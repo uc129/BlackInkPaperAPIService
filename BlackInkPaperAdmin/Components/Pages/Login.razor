@@ -2,6 +2,8 @@
 @inject AuthApiClient AuthApiClient
 @inject AdminSession Session
 @inject NavigationManager Navigation
+@inject ILogger<Login> Logger
+
 
 <PageTitle>Login</PageTitle>
 
@@ -51,18 +53,25 @@
     {
         submitting = true;
         errorMessage = null;
-
+        Logger.LogInformation("Login attempt for user: {Email}", model.Email);
         try
         {
             var response = await AuthApiClient.LoginAsync(new LoginRequest(model.Email, model.Password));
             if (!response.Success || response.Data is null)
             {
                 errorMessage = response.Message;
+                Logger.LogWarning("Login failed for {Email}: {Reason}", model.Email, response.Message);
+                submitting = false;
                 return;
             }
-
+            Console.WriteLine(response.Data.Token);
             await Session.SetTokenAsync(response.Data.Token);
-            Navigation.NavigateTo("/products", true);
+            Navigation.NavigateTo("/products");
+        }
+        catch(Exception ex)
+        {
+            submitting = false;
+            Logger.LogWarning("Login failed for {Email}: {Reason}", model.Email, ex.Message);
         }
         finally
         {
