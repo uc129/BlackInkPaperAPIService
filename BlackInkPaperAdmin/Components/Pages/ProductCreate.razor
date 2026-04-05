@@ -7,11 +7,11 @@
 
 <h1>Create Product</h1>
 
-<ProductEditorForm Model="model" SubmitLabel="Create Product" ErrorMessage="errorMessage" OnValidSubmit="SaveAsync" />
+<ProductEditorForm Model="_model" SubmitLabel="Create Product" ErrorMessage="errorMessage" OnValidSubmit="SaveAsync" IsCreateMode="true" />
 
 @code {
-    private readonly ProductEditorModel model = ProductEditorModel.CreateDefault();
-    private string? errorMessage;
+    private readonly ProductEditorModel _model = ProductEditorModel.CreateDefault();
+    private string? _errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -24,10 +24,10 @@
 
     private async Task SaveAsync()
     {
-        var response = await ProductsApi.CreateAsync(Session, model.ToCreateRequest());
+        var response = await ProductsApi.CreateAsync(Session, _model.ToCreateRequest());
         if (!response.Success || response.Data is null)
         {
-            errorMessage = response.Message;
+            _errorMessage = response.Message;
             return;
         }
 

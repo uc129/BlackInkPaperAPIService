@@ -1,3 +1,5 @@
+using Domain.Entities.Ecommerce;
+
 namespace Domain.Aggregates.Ecommerce;
 
 public class OrderAggregate
@@ -46,7 +48,7 @@ public class OrderItemAggregate
     public int Quantity { get; set; }
     public decimal LineTotal { get; set; }
     public string? Sku { get; set; }
-    public string? FulfillmentType { get; set; }
+    public ProductFulfillmentType? FulfillmentType { get; set; }
     public List<OrderItemSelectedVariantAggregate> SelectedVariants { get; set; } = [];
 }
 
@@ -61,5 +63,5 @@ public class OrderItemSelectedVariantAggregate
     public decimal? PriceModifier { get; set; }
     public decimal? AbsolutePrice { get; set; }
     public string? Sku { get; set; }
-    public string? FulfillmentType { get; set; }
+    public ProductFulfillmentType? FulfillmentType { get; set; }
 }

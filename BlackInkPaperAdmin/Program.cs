@@ -11,19 +11,12 @@ builder.Services.Configure<AdminApiOptions>(builder.Configuration.GetSection("Ad
 builder.Services.AddScoped<AdminSession>();
 builder.Services.AddScoped<AuthApiClient>();
 builder.Services.AddScoped<ProductAdminApiClient>();
+builder.Services.AddScoped<ProductReferenceApiClient>();
 builder.Services.AddScoped(_ => new HttpClient());
 
-
-// In Program.cs
 builder.Services.AddLocalStorageServices();
 builder.Services.AddServerSideBlazor()
     .AddCircuitOptions(options =>
-    {
-        options.DetailedErrors = true;
-    });
-
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents(options =>
     {
         options.DetailedErrors = true;
     });
@@ -39,8 +32,8 @@ if (!app.Environment.IsDevelopment())
 
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 app.UseAntiforgery();
-app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

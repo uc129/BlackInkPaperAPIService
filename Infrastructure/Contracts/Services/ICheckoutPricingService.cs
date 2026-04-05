@@ -1,4 +1,5 @@
 using Domain.Aggregates.Ecommerce;
+using Domain.Entities.Ecommerce;
 
 namespace Infrastructure.Contracts.Services;
 
@@ -31,5 +32,5 @@ public sealed class CheckoutPricingLine
     public required bool RequiresShipping { get; init; }
     public required decimal WeightGrams { get; init; }
     public required string? Sku { get; init; }
-    public required string? FulfillmentType { get; init; }
+    public required ProductFulfillmentType? FulfillmentType { get; init; }
 }

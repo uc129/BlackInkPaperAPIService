@@ -1,0 +1,58 @@
+<div class="form-tabs">
+    @foreach (var tabPage in _pages)
+    {
+        <button type="button" 
+                class="tab-button @(ActivePage == tabPage ? "active" : "")" 
+                @onclick="() => ActivatePage(tabPage)">
+            @tabPage.Title
+        </button>
+    }
+</div>
+
+<CascadingValue Value="this">
+    @ChildContent
+</CascadingValue>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    
+    private readonly List<TabPage> _pages = [];
+    public TabPage? ActivePage { get; private set; }
+
+    internal void AddPage(TabPage tabPage)
+    {
+        _pages.Add(tabPage);
+        if (_pages.Count == 1)
+        {
+            ActivePage = tabPage;
+        }
+        StateHasChanged();
+    }
+
+    public void ActivatePage(TabPage tabPage)
+    {
+        ActivePage = tabPage;
+        StateHasChanged();
+    }
+
+    public void Next()
+    {
+        var index = _pages.IndexOf(ActivePage!);
+        if (index < _pages.Count - 1)
+        {
+            ActivatePage(_pages[index + 1]);
+        }
+    }
+
+    public void Previous()
+    {
+        var index = _pages.IndexOf(ActivePage!);
+        if (index > 0)
+        {
+            ActivatePage(_pages[index - 1]);
+        }
+    }
+
+    public bool IsFirst => _pages.IndexOf(ActivePage!) == 0;
+    public bool IsLast => _pages.IndexOf(ActivePage!) == _pages.Count - 1;
+}

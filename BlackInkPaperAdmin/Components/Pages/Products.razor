@@ -20,7 +20,7 @@ else
             <button class="button" @onclick="@(() => Navigation.NavigateTo("/products/new"))">Create Product</button>
         </div>
 
-        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        @if (!string.IsNullOrWhiteSpace(errorMessage) && errorMessage !="errorMessage")
         {
             <p class="error-text">@errorMessage</p>
         }

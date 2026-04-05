@@ -55,7 +55,7 @@ public static class CheckoutDtoMapper
                 item.Quantity,
                 item.LineTotal,
                 item.Sku,
-                item.FulfillmentType,
+                item.FulfillmentType?.ToString(),
                 item.SelectedVariants.Select(variant => new OrderSelectedVariantDto(
                     variant.ProductVariantId,
                     variant.ProductVariantOptionId,
@@ -64,7 +64,7 @@ public static class CheckoutDtoMapper
                     variant.PriceModifier,
                     variant.AbsolutePrice,
                     variant.Sku,
-                    variant.FulfillmentType)).ToList())).ToList());
+                    variant.FulfillmentType?.ToString())).ToList())).ToList());
 
     public static ShippingAddressAggregate ToAggregate(string userId, CreateShippingAddressRequest request, DateTime nowUtc)
         => new()

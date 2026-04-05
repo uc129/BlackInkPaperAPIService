@@ -25,6 +25,9 @@ public class ProductEditorModel
     public string CoverImageUrl { get; set; } = string.Empty;
     public string HeaderImageUrl { get; set; } = string.Empty;
     public int? StockQuantity { get; set; }
+    public List<int> TagIds { get; set; } = [];
+    public List<ProductImageModel> Images { get; set; } = [];
+    public List<ProductVariantModel> Variants { get; set; } = [];
     public int? WeightGrams { get; set; }
     public string? Material { get; set; }
     public string? FileFormat { get; set; }
@@ -33,7 +36,10 @@ public class ProductEditorModel
     public static ProductEditorModel CreateDefault() => new()
     {
         CurrencyCode = "INR",
-        IsAvailable = true
+        IsAvailable = true,
+        TagIds = [],
+        Images = [],
+        Variants = []
     };
 
     public static ProductEditorModel FromResponse(ProductResponseDto response) => new()
@@ -58,6 +64,9 @@ public class ProductEditorModel
         CoverImageUrl = response.Media.CoverImageUrl,
         HeaderImageUrl = response.Media.HeaderImageUrl,
         StockQuantity = response.Stats.StockQuantity,
+        TagIds = response.Tags.Select(x => x.Id).ToList(),
+        Images = response.Images.Select(ProductImageModel.FromDto).ToList(),
+        Variants = response.Variants.Select(ProductVariantModel.FromDto).ToList(),
         WeightGrams = response.ArtSpecs?.WeightGrams,
         Material = response.ArtSpecs?.Material,
         FileFormat = response.ArtSpecs?.FileFormat,
@@ -80,9 +89,9 @@ public class ProductEditorModel
         new ProductPricingDto(BasePrice, FinalPrice, CurrencyCode),
         new ProductMediaDto(CoverImageUrl, HeaderImageUrl),
         StockQuantity,
-        null,
-        null,
-        null);
+        TagIds,
+        Images.Select(x => x.ToCreateDto()).ToList(),
+        Variants.Select(x => x.ToCreateDto()).ToList());
 
     public UpdateProductRequest ToUpdateRequest() => new(
         ProductId,
@@ -99,9 +108,9 @@ public class ProductEditorModel
         new ProductPricingDto(BasePrice, FinalPrice, CurrencyCode),
         new ProductMediaDto(CoverImageUrl, HeaderImageUrl),
         StockQuantity,
-        null,
-        null,
-        null);
+        TagIds,
+        Images.Select(x => x.ToUpdateDto()).ToList(),
+        Variants.Select(x => x.ToUpdateDto()).ToList());
 
     private ArtSpecificationsDto? BuildArtSpecs()
     {
@@ -115,4 +124,79 @@ public class ProductEditorModel
 
         return new ArtSpecificationsDto(null, WeightGrams, null, Material, FileFormat, null, PixelDimensions);
     }
+}
+
+public class ProductImageModel
+{
+    public int? Id { get; set; }
+    public string AltText { get; set; } = string.Empty;
+    public bool IsPrimary { get; set; }
+    public int DisplayOrder { get; set; }
+    public string PublicId { get; set; } = string.Empty;
+    public string BaseUrl { get; set; } = string.Empty;
+    public double AspectRatio { get; set; } = 1.0;
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public string? PlaceholderUrl { get; set; }
+
+    public static ProductImageModel FromDto(ProductImageDto dto) => new()
+    {
+        Id = dto.Id,
+        AltText = dto.AltText,
+        IsPrimary = dto.IsPrimary,
+        DisplayOrder = dto.DisplayOrder,
+        PublicId = dto.PublicId,
+        BaseUrl = dto.BaseUrl,
+        AspectRatio = dto.AspectRatio,
+        Width = dto.Width,
+        Height = dto.Height,
+        PlaceholderUrl = dto.PlaceholderUrl
+    };
+
+    public CreateProductImageDto ToCreateDto() => new(AltText, IsPrimary, DisplayOrder, PublicId, BaseUrl, AspectRatio, Width, Height, PlaceholderUrl);
+    public UpdateProductImageDto ToUpdateDto() => new(Id, AltText, IsPrimary, DisplayOrder, PublicId, BaseUrl, AspectRatio, Width, Height, PlaceholderUrl);
+}
+
+public class ProductVariantModel
+{
+    public int? Id { get; set; }
+    [Required] public string Label { get; set; } = string.Empty;
+    public List<ProductVariantOptionModel> Options { get; set; } = [];
+
+    public static ProductVariantModel FromDto(ProductVariantDto dto) => new()
+    {
+        Id = dto.Id,
+        Label = dto.Label,
+        Options = dto.Options.Select(ProductVariantOptionModel.FromDto).ToList()
+    };
+
+    public CreateProductVariantDto ToCreateDto() => new(Label, Options.Select(x => x.ToCreateDto()).ToList());
+    public UpdateProductVariantDto ToUpdateDto() => new(Id, Label, Options.Select(x => x.ToUpdateDto()).ToList());
+}
+
+public class ProductVariantOptionModel
+{
+    public int? Id { get; set; }
+    [Required] public string Value { get; set; } = string.Empty;
+    public decimal? PriceModifier { get; set; }
+    public decimal? AbsolutePrice { get; set; }
+    public int? StockQuantity { get; set; }
+    public int FulfillmentType { get; set; } // 0 = digital, 1 = physical
+    public string Sku { get; set; } = string.Empty;
+    public decimal? WeightGrams { get; set; }
+
+    public static ProductVariantOptionModel FromDto(ProductVariantOptionDto dto) => new()
+    {
+        Id = dto.Id,
+        Value = dto.Value,
+        PriceModifier = dto.PriceModifier,
+        AbsolutePrice = dto.AbsolutePrice,
+        StockQuantity = dto.StockQuantity,
+        FulfillmentType = dto.FulfillmentType,
+        Sku = dto.Sku,
+        WeightGrams = dto.WeightGrams
+    };
+
+    public CreateProductVariantOptionDto ToCreateDto() => new(Value, PriceModifier, AbsolutePrice, StockQuantity, FulfillmentType, Sku, WeightGrams);
+    public UpdateProductVariantOptionDto ToUpdateDto() => new(Id, Value, PriceModifier, AbsolutePrice, StockQuantity, FulfillmentType, Sku, WeightGrams);
 }

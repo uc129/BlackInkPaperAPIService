@@ -1,5 +1,6 @@
 using Dapper;
 using Domain.Aggregates.Ecommerce;
+using Domain.Entities.Ecommerce;
 using Infrastructure.Contracts.Repositories;
 using Infrastructure.Persistence;
 
@@ -156,7 +157,7 @@ public class OrderRepository(IDapperContext dapperContext) : IOrderRepository
                     item.Quantity,
                     item.LineTotal,
                     item.Sku,
-                    item.FulfillmentType
+                    FulfillmentType = item.FulfillmentType?.ToString()
                 }, transaction);
 
                 foreach (var variant in item.SelectedVariants)
@@ -171,7 +172,7 @@ public class OrderRepository(IDapperContext dapperContext) : IOrderRepository
                         variant.PriceModifier,
                         variant.AbsolutePrice,
                         variant.Sku,
-                        variant.FulfillmentType
+                        FulfillmentType = variant.FulfillmentType?.ToString()
                     }, transaction);
                 }
             }
@@ -431,8 +432,8 @@ public class OrderRepository(IDapperContext dapperContext) : IOrderRepository
         await using var multi = await connection.QueryMultipleAsync(sql, parameters);
 
         var orderRows = (await multi.ReadAsync<OrderWithAddressRow>()).ToList();
-        var itemRows = (await multi.ReadAsync<OrderItemAggregate>()).ToList();
-        var variantRows = (await multi.ReadAsync<OrderItemSelectedVariantAggregate>()).ToList();
+        var itemRows = (await multi.ReadAsync<OrderItemRow>()).ToList();
+        var variantRows = (await multi.ReadAsync<OrderItemSelectedVariantRow>()).ToList();
 
         var orders = orderRows.Select(row => new OrderAggregate
         {
@@ -482,10 +483,17 @@ public class OrderRepository(IDapperContext dapperContext) : IOrderRepository
 
         foreach (var order in orders)
         {
-            order.Items = itemRows.Where(item => item.OrderId == order.Id).ToList();
+            order.Items = itemRows
+                .Where(item => item.OrderId == order.Id)
+                .Select(MapOrderItem)
+                .ToList();
+
             foreach (var item in order.Items)
             {
-                item.SelectedVariants = variantRows.Where(variant => variant.OrderItemId == item.Id).ToList();
+                item.SelectedVariants = variantRows
+                    .Where(variant => variant.OrderItemId == item.Id)
+                    .Select(MapOrderSelectedVariant)
+                    .ToList();
             }
         }
 
@@ -518,12 +526,16 @@ public class OrderRepository(IDapperContext dapperContext) : IOrderRepository
             return null;
         }
 
-        order.Items = (await multi.ReadAsync<OrderItemAggregate>()).ToList();
-        var variants = (await multi.ReadAsync<OrderItemSelectedVariantAggregate>()).ToList();
+        var itemRows = (await multi.ReadAsync<OrderItemRow>()).ToList();
+        var variantRows = (await multi.ReadAsync<OrderItemSelectedVariantRow>()).ToList();
 
+        order.Items = itemRows.Select(MapOrderItem).ToList();
         foreach (var item in order.Items)
         {
-            item.SelectedVariants = variants.Where(variant => variant.OrderItemId == item.Id).ToList();
+            item.SelectedVariants = variantRows
+                .Where(variant => variant.OrderItemId == item.Id)
+                .Select(MapOrderSelectedVariant)
+                .ToList();
         }
 
         return order;
@@ -532,7 +544,7 @@ public class OrderRepository(IDapperContext dapperContext) : IOrderRepository
     private static async Task ApplyInventoryForOrderItem(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, int orderId, OrderItemAggregate item, DateTime createdAt)
     {
         var physicalVariants = item.SelectedVariants
-            .Where(variant => string.Equals(variant.FulfillmentType, "physical", StringComparison.OrdinalIgnoreCase))
+            .Where(variant => variant.FulfillmentType == ProductFulfillmentType.physical)
             .ToList();
 
         if (physicalVariants.Count > 0)
@@ -606,7 +618,7 @@ public class OrderRepository(IDapperContext dapperContext) : IOrderRepository
             }
         }
 
-        if (!string.Equals(item.FulfillmentType, "physical", StringComparison.OrdinalIgnoreCase))
+        if (item.FulfillmentType != ProductFulfillmentType.physical)
         {
             return;
         }
@@ -667,6 +679,48 @@ public class OrderRepository(IDapperContext dapperContext) : IOrderRepository
             transaction);
     }
 
+    private static OrderItemAggregate MapOrderItem(OrderItemRow row)
+    {
+        return new OrderItemAggregate
+        {
+            Id = row.Id,
+            OrderId = row.OrderId,
+            ProductDbId = row.ProductDbId,
+            ProductId = row.ProductId,
+            Name = row.Name,
+            Slug = row.Slug,
+            CoverImageUrl = row.CoverImageUrl,
+            CurrencyCode = row.CurrencyCode,
+            BasePrice = row.BasePrice,
+            UnitPrice = row.UnitPrice,
+            Quantity = row.Quantity,
+            LineTotal = row.LineTotal,
+            Sku = row.Sku,
+            FulfillmentType = Enum.TryParse<ProductFulfillmentType>(row.FulfillmentType, true, out var fulfillmentType)
+                ? fulfillmentType
+                : null
+        };
+    }
+
+    private static OrderItemSelectedVariantAggregate MapOrderSelectedVariant(OrderItemSelectedVariantRow row)
+    {
+        return new OrderItemSelectedVariantAggregate
+        {
+            Id = row.Id,
+            OrderItemId = row.OrderItemId,
+            ProductVariantId = row.ProductVariantId,
+            ProductVariantOptionId = row.ProductVariantOptionId,
+            VariantLabel = row.VariantLabel,
+            OptionValue = row.OptionValue,
+            PriceModifier = row.PriceModifier,
+            AbsolutePrice = row.AbsolutePrice,
+            Sku = row.Sku,
+            FulfillmentType = Enum.TryParse<ProductFulfillmentType>(row.FulfillmentType, true, out var fulfillmentType)
+                ? fulfillmentType
+                : null
+        };
+    }
+
     private sealed class OrderWithAddressRow
     {
         public int Id { get; init; }
@@ -707,5 +761,37 @@ public class OrderRepository(IDapperContext dapperContext) : IOrderRepository
         public bool IsDefault { get; init; }
         public DateTime AddressCreatedAt { get; init; }
         public DateTime AddressUpdatedAt { get; init; }
+    }
+
+    private sealed class OrderItemRow
+    {
+        public int Id { get; init; }
+        public int OrderId { get; init; }
+        public int ProductDbId { get; init; }
+        public string ProductId { get; init; } = string.Empty;
+        public string Name { get; init; } = string.Empty;
+        public string Slug { get; init; } = string.Empty;
+        public string? CoverImageUrl { get; init; }
+        public string CurrencyCode { get; init; } = "INR";
+        public decimal BasePrice { get; init; }
+        public decimal UnitPrice { get; init; }
+        public int Quantity { get; init; }
+        public decimal LineTotal { get; init; }
+        public string? Sku { get; init; }
+        public string? FulfillmentType { get; init; }
+    }
+
+    private sealed class OrderItemSelectedVariantRow
+    {
+        public int Id { get; init; }
+        public int OrderItemId { get; init; }
+        public int ProductVariantId { get; init; }
+        public int ProductVariantOptionId { get; init; }
+        public string VariantLabel { get; init; } = string.Empty;
+        public string OptionValue { get; init; } = string.Empty;
+        public decimal? PriceModifier { get; init; }
+        public decimal? AbsolutePrice { get; init; }
+        public string? Sku { get; init; }
+        public string? FulfillmentType { get; init; }
     }
 }

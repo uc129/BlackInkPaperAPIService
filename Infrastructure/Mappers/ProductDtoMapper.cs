@@ -222,7 +222,7 @@ public static class ProductDtoMapper
             PriceModifier = option.PriceModifier,
             AbsolutePrice = option.AbsolutePrice,
             StockQuantity = option.StockQuantity,
-            FulfillmentType = (ProductFulfillmentTypes)option.FulfillmentType,
+            FulfillmentType = (ProductFulfillmentType)option.FulfillmentType,
             Sku = option.Sku.Trim(),
             WeightGrams = option.WeightGrams
         };
@@ -237,7 +237,7 @@ public static class ProductDtoMapper
             PriceModifier = option.PriceModifier,
             AbsolutePrice = option.AbsolutePrice,
             StockQuantity = option.StockQuantity,
-            FulfillmentType = (ProductFulfillmentTypes)option.FulfillmentType,
+            FulfillmentType = (ProductFulfillmentType)option.FulfillmentType,
             Sku = option.Sku.Trim(),
             WeightGrams = option.WeightGrams
         };

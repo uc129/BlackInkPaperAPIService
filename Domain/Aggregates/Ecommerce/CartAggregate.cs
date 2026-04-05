@@ -28,7 +28,7 @@ public class CartItemAggregate
     public int Quantity { get; set; }
     public decimal LineTotal { get; set; }
     public string? Sku { get; set; }
-    public ProductFulfillmentTypes? FulfillmentType { get; set; }
+    public ProductFulfillmentType? FulfillmentType { get; set; }
     public DateTime AddedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public List<CartItemSelectedVariant> SelectedVariants { get; set; } = [];

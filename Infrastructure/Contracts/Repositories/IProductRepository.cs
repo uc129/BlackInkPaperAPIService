@@ -1,3 +1,4 @@
+using Application.DTOs.Products;
 using Domain.Aggregates.Ecommerce;
 
 namespace Infrastructure.Contracts.Repositories;
@@ -28,4 +29,12 @@ public interface IProductRepository
     Task<bool> CategoryExists(int categoryId);
     Task<bool> SubCategoryExists(int subCategoryId);
     Task<bool> ArtSpecificationExists(int artSpecId);
+    Task<IReadOnlyList<ArtistLookupDto>> GetArtists();
+    Task<IReadOnlyList<ProductCategoryLookupDto>> GetCategories();
+    Task<IReadOnlyList<ProductSubCategoryLookupDto>> GetSubCategories(int? categoryId = null);
+    Task<IReadOnlyList<ProductTagDto>> GetTags();
+    Task<ProductCategoryLookupDto> CreateCategory(CreateProductCategoryRequest request);
+    Task<ProductSubCategoryLookupDto> CreateSubCategory(CreateProductSubCategoryRequest request);
+    Task<bool> CategorySlugExists(string slug);
+    Task<bool> SubCategorySlugExists(string slug);
 }

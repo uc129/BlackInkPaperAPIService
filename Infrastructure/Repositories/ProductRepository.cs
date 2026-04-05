@@ -1,4 +1,5 @@
 using Dapper;
+using Application.DTOs.Products;
 using Domain.Aggregates.Ecommerce;
 using Domain.Entities.Ecommerce;
 using Infrastructure.Contracts.Repositories;
@@ -323,6 +324,183 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
     public async Task<bool> ArtSpecificationExists(int artSpecId)
         => await ExistsById("ArtSpecifications", artSpecId);
 
+    public async Task<IReadOnlyList<ArtistLookupDto>> GetArtists()
+    {
+        const string sql = """
+            SELECT
+                Id,
+                DisplayName,
+                ProfileImageUrl,
+                IsVerified
+            FROM ArtistProfiles
+            ORDER BY DisplayName, Id;
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        var items = await connection.QueryAsync<ArtistLookupDto>(sql);
+        return items.ToList();
+    }
+
+    public async Task<IReadOnlyList<ProductCategoryLookupDto>> GetCategories()
+    {
+        const string sql = """
+            SELECT
+                Id,
+                NameCode,
+                Name,
+                PrintName,
+                Slug,
+                Description,
+                CoverImageUrl,
+                IsActive,
+                IsFeatured
+            FROM ProductCategories
+            ORDER BY PrintName, Name, Id;
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        var items = await connection.QueryAsync<ProductCategoryLookupDto>(sql);
+        return items.ToList();
+    }
+
+    public async Task<IReadOnlyList<ProductSubCategoryLookupDto>> GetSubCategories(int? categoryId = null)
+    {
+        const string sql = """
+            SELECT
+                Id,
+                CategoryId,
+                NameCode,
+                Name,
+                PrintName,
+                Slug,
+                Description,
+                CoverImageUrl,
+                IsActive,
+                IsFeatured
+            FROM ProductSubCategories
+            WHERE @CategoryId IS NULL OR CategoryId = @CategoryId
+            ORDER BY PrintName, Name, Id;
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        var items = await connection.QueryAsync<ProductSubCategoryLookupDto>(sql, new { CategoryId = categoryId });
+        return items.ToList();
+    }
+
+    public async Task<IReadOnlyList<ProductTagDto>> GetTags()
+    {
+        const string sql = """
+            SELECT
+                Id,
+                Name,
+                Slug,
+                Color
+            FROM ProductTags
+            ORDER BY Name, Id;
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        var items = await connection.QueryAsync<ProductTagDto>(sql);
+        return items.ToList();
+    }
+
+    public async Task<ProductCategoryLookupDto> CreateCategory(CreateProductCategoryRequest request)
+    {
+        const string sql = """
+            INSERT INTO ProductCategories
+            (
+                NameCode,
+                Name,
+                PrintName,
+                Description,
+                IsActive,
+                IsFeatured,
+                Slug,
+                CoverImageUrl
+            )
+            VALUES
+            (
+                @NameCode,
+                @Name,
+                @PrintName,
+                @Description,
+                @IsActive,
+                @IsFeatured,
+                @Slug,
+                @CoverImageUrl
+            );
+
+            SELECT
+                Id,
+                NameCode,
+                Name,
+                PrintName,
+                Slug,
+                Description,
+                CoverImageUrl,
+                IsActive,
+                IsFeatured
+            FROM ProductCategories
+            WHERE Id = CAST(SCOPE_IDENTITY() AS int);
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        return await connection.QuerySingleAsync<ProductCategoryLookupDto>(sql, request);
+    }
+
+    public async Task<ProductSubCategoryLookupDto> CreateSubCategory(CreateProductSubCategoryRequest request)
+    {
+        const string sql = """
+            INSERT INTO ProductSubCategories
+            (
+                CategoryId,
+                NameCode,
+                Name,
+                PrintName,
+                Description,
+                IsActive,
+                IsFeatured,
+                Slug,
+                CoverImageUrl
+            )
+            VALUES
+            (
+                @CategoryId,
+                @NameCode,
+                @Name,
+                @PrintName,
+                @Description,
+                @IsActive,
+                @IsFeatured,
+                @Slug,
+                @CoverImageUrl
+            );
+
+            SELECT
+                Id,
+                CategoryId,
+                NameCode,
+                Name,
+                PrintName,
+                Slug,
+                Description,
+                CoverImageUrl,
+                IsActive,
+                IsFeatured
+            FROM ProductSubCategories
+            WHERE Id = CAST(SCOPE_IDENTITY() AS int);
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        return await connection.QuerySingleAsync<ProductSubCategoryLookupDto>(sql, request);
+    }
+
+    public async Task<bool> CategorySlugExists(string slug)
+        => await ExistsBySlug("ProductCategories", slug);
+
+    public async Task<bool> SubCategorySlugExists(string slug)
+        => await ExistsBySlug("ProductSubCategories", slug);
+
     private async Task<ProductAggregate?> GetSingleByColumn<TValue>(string columnName, TValue value)
     {
         var sql = $"""
@@ -482,6 +660,21 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
 
         using var connection = dapperContext.CreateConnection();
         return await connection.ExecuteScalarAsync<bool>(sql, new { Id = id });
+    }
+
+    private async Task<bool> ExistsBySlug(string tableName, string slug)
+    {
+        var sql = $"""
+            SELECT CAST(CASE WHEN EXISTS
+            (
+                SELECT 1
+                FROM {tableName}
+                WHERE Slug = @Slug
+            ) THEN 1 ELSE 0 END AS bit);
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        return await connection.ExecuteScalarAsync<bool>(sql, new { Slug = slug });
     }
 
     private static async Task ReplaceProductImages(

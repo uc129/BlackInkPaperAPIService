@@ -2,6 +2,7 @@ using System.Text.Json;
 using Application.DTOs.Checkout;
 using Common.YourProject.Models;
 using Domain.Aggregates.Ecommerce;
+using Domain.Entities.Ecommerce;
 using Infrastructure.Contracts.Repositories;
 using Infrastructure.Contracts.Services;
 using Infrastructure.Mappers;
@@ -450,7 +451,7 @@ public class CheckoutApplicationService(
                 line.CartItem.Quantity,
                 line.LineTotal,
                 line.Sku,
-                line.FulfillmentType,
+                line.FulfillmentType.ToString(),
                 line.CartItem.SelectedVariants.Select(variant => new CheckoutSelectedVariantDto(
                     variant.ProductVariantId,
                     variant.ProductVariantOptionId,
@@ -508,7 +509,7 @@ public class CheckoutApplicationService(
                     PriceModifier = variant.PriceModifier,
                     AbsolutePrice = variant.AbsolutePrice,
                     Sku = variant.Sku,
-                    FulfillmentType = variant.FulfillmentType?.ToString()
+                    FulfillmentType = variant.FulfillmentType
                 }).ToList()
             }).ToList()
         };

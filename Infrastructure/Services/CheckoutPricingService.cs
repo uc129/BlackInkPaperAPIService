@@ -33,7 +33,7 @@ public class CheckoutPricingService(
             var basePrice = product.FinalPrice > 0 ? product.FinalPrice : product.BasePrice;
             var unitPrice = basePrice;
             var selectedSku = item.Sku;
-            var requiresShipping = item.FulfillmentType == ProductFulfillmentTypes.physical;
+            var requiresShipping = item.FulfillmentType == ProductFulfillmentType.physical;
             decimal weightGrams = product.ArtSpecs.WeightGrams ?? 0m;
 
             foreach (var selectedVariant in item.SelectedVariants)
@@ -60,7 +60,7 @@ public class CheckoutPricingService(
                 }
 
                 selectedSku = string.IsNullOrWhiteSpace(option.Sku) ? selectedSku : option.Sku;
-                requiresShipping |= option.FulfillmentType == ProductFulfillmentTypes.physical;
+                requiresShipping |= option.FulfillmentType == ProductFulfillmentType.physical;
                 weightGrams += option.WeightGrams ?? 0m;
             }
 
@@ -81,7 +81,7 @@ public class CheckoutPricingService(
                 RequiresShipping = requiresShipping,
                 WeightGrams = weightGrams,
                 Sku = selectedSku,
-                FulfillmentType = requiresShipping ? ProductFulfillmentTypes.physical.ToString() : ProductFulfillmentTypes.digital.ToString()
+                FulfillmentType = requiresShipping ? ProductFulfillmentType.physical : ProductFulfillmentType.digital
             });
         }
 

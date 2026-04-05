@@ -1,6 +1,6 @@
 ﻿namespace Domain.Entities.Ecommerce
 {
-    public enum ProductFulfillmentTypes
+    public enum ProductFulfillmentType
     {
         digital,
         physical

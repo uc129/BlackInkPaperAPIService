@@ -20,7 +20,7 @@
         public int? StockQuantity { get; set; }
 
         // Hybrid Fulfillment Logic
-        public ProductFulfillmentTypes FulfillmentType { get; set; }  // "digital" | "physical"
+        public ProductFulfillmentType FulfillmentType { get; set; }  // "digital" | "physical"
         public string Sku { get; set; } = string.Empty;
         public decimal? WeightGrams { get; set; }
     }

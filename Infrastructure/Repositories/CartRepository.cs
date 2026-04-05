@@ -387,7 +387,7 @@ public class CartRepository(IDapperContext dapperContext) : ICartRepository
             PriceModifier = row.PriceModifier,
             AbsolutePrice = row.AbsolutePrice,
             Sku = row.Sku,
-            FulfillmentType = Enum.TryParse<ProductFulfillmentTypes>(row.FulfillmentType, true, out var fulfillmentType)
+            FulfillmentType = Enum.TryParse<ProductFulfillmentType>(row.FulfillmentType, true, out var fulfillmentType)
                 ? fulfillmentType
                 : null
         };

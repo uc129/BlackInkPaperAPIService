@@ -3,6 +3,7 @@ using Infrastructure.Contracts.Repositories;
 using Infrastructure.Contracts.Services;
 using Infrastructure.Configuration;
 using Infrastructure.Persistence;
+using Infrastructure.Persistence.Data_Seed;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -11,6 +12,17 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// CORS for Admin UI
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAdminUI", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
 
 //DB Setup [Dapper]
 builder.Services.AddSingleton<IDapperContext, DapperContext>();
@@ -45,6 +57,7 @@ builder.Services.AddScoped<ICartApplicationService, CartApplicationService>();
 builder.Services.AddScoped<ICheckoutApplicationService, CheckoutApplicationService>();
 builder.Services.AddScoped<ICheckoutPricingService, CheckoutPricingService>();
 builder.Services.AddScoped<IProductApplicationService, ProductApplicationService>();
+builder.Services.AddScoped<IProductReferenceDataService, ProductReferenceDataService>();
 builder.Services.AddHttpClient<IRazorpayGateway, RazorpayGateway>((serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<RazorpayOptions>>().Value;
@@ -67,6 +80,9 @@ builder.Services.AddAuthentication(options => {
         IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
     };
 });
+
+
+
 var app = builder.Build();
 
 
@@ -79,6 +95,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseRouting();
+app.UseCors("AllowAdminUI");
 app.UseAuthentication();
 app.UseMiddleware<TokenBlacklistMiddleware>();
 app.UseAuthorization();

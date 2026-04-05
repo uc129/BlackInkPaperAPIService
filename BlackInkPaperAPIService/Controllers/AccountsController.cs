@@ -1,4 +1,6 @@
 ﻿using Application.DTOs.UserAuth;
+using BlackInkPaperAPIService.Controllers.Extensions;
+using Common.YourProject.Models;
 using Infrastructure.Contracts.Repositories;
 using Infrastructure.Contracts.Services;
 using Infrastructure.Persistence;
@@ -22,12 +24,11 @@ namespace BlackInkPaperAPIService.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterRequest request)
         {
-
             string[] allowedRoles = { "Artist", "User" };
 
             if (!allowedRoles.Contains(request.Role, StringComparer.OrdinalIgnoreCase))
             {
-                return BadRequest($"User cannot be assigned to the role: {request.Role}");
+                return this.ToApiResult(ServiceResponse<string>.Fail($"User cannot be assigned to the role: {request.Role}", statusCode: 400));
             }
 
             // 1. Create User Object
@@ -42,7 +43,10 @@ namespace BlackInkPaperAPIService.Controllers
             var result = await userManager.CreateAsync(user, request.Password);
 
             if (!result.Succeeded)
-                return BadRequest(result.Errors);
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                return this.ToApiResult(ServiceResponse<string>.Fail(errors, statusCode: 400));
+            }
 
             // 3. Assign Role (ensure role exists first)
             if (await roleManager.RoleExistsAsync(request.Role))
@@ -50,7 +54,7 @@ namespace BlackInkPaperAPIService.Controllers
                 await userManager.AddToRoleAsync(user, request.Role);
             }
 
-            return Ok(new { Message = "User registered successfully" });
+            return this.ToApiResult(ServiceResponse<string>.Ok("User registered successfully", "Registration Successful", 201));
         }
 
         [HttpPost("login")]
@@ -59,12 +63,12 @@ namespace BlackInkPaperAPIService.Controllers
             var user = await userManager.FindByEmailAsync(request.Email);
 
             if (user == null || !await userManager.CheckPasswordAsync(user, request.Password))
-                return Unauthorized("Invalid credentials");
+                return this.ToApiResult(ServiceResponse<AuthResponse>.Fail("Invalid credentials", statusCode: 401));
 
             var roles = await userManager.GetRolesAsync(user);
             var token = tokenService.GenerateToken(user, roles);
 
-            return Ok(new AuthResponse(true, token, "Login Successful"));
+            return this.ToApiResult(ServiceResponse<AuthResponse>.Ok(new AuthResponse(true, token, "Login Successful")));
         }
 
         [HttpPost("logout")]
@@ -75,10 +79,8 @@ namespace BlackInkPaperAPIService.Controllers
 
             // For JWT, we simply return a success message. 
             // The Frontend is responsible for removing the token from its storage.
-            return Ok(new { message = "Logged out successfully. Please remove your token." });
+            return this.ToApiResult(ServiceResponse<string>.Ok("Logged out successfully. Please remove your token."));
         }
-
-
 
         [HttpPost("logout-secure")]
         [Authorize]
@@ -92,10 +94,9 @@ namespace BlackInkPaperAPIService.Controllers
             {
                     var expiryDate = DateTimeOffset.FromUnixTimeSeconds(long.Parse(expiryClaim)).UtcDateTime;
                     var response = await tokenblacklist.AddTokenToBlackList(tokenId, expiryDate);
-                    if(response.Success) return Ok(new { message = "Token invalidated successfully." });
-                    else return BadRequest();
+                    return this.ToApiResult(response);
             }
-            return BadRequest("User Claim Not Found!");
+            return this.ToApiResult(ServiceResponse<string>.Fail("User Claim Not Found!"));
         }
     }
 }

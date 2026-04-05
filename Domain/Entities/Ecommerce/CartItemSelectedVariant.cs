@@ -11,5 +11,5 @@ public class CartItemSelectedVariant
     public decimal? PriceModifier { get; set; }
     public decimal? AbsolutePrice { get; set; }
     public string? Sku { get; set; }
-    public ProductFulfillmentTypes? FulfillmentType { get; set; }
+    public ProductFulfillmentType? FulfillmentType { get; set; }
 }
