@@ -28,13 +28,27 @@ public interface IProductRepository
     Task<bool> ArtistExists(int artistId);
     Task<bool> CategoryExists(int categoryId);
     Task<bool> SubCategoryExists(int subCategoryId);
-    Task<bool> ArtSpecificationExists(int artSpecId);
     Task<IReadOnlyList<ArtistLookupDto>> GetArtists();
     Task<IReadOnlyList<ProductCategoryLookupDto>> GetCategories();
     Task<IReadOnlyList<ProductSubCategoryLookupDto>> GetSubCategories(int? categoryId = null);
     Task<IReadOnlyList<ProductTagDto>> GetTags();
     Task<ProductCategoryLookupDto> CreateCategory(CreateProductCategoryRequest request);
     Task<ProductSubCategoryLookupDto> CreateSubCategory(CreateProductSubCategoryRequest request);
+    Task<ProductCategoryLookupDto?> UpdateCategory(int id, UpdateProductCategoryRequest request);
+    Task<ProductSubCategoryLookupDto?> UpdateSubCategory(int id, UpdateProductSubCategoryRequest request);
+    Task<ProductTagDto> CreateTag(CreateProductTagRequest request);
+    Task<ProductTagDto?> UpdateTag(int id, UpdateProductTagRequest request);
+    Task DeleteCategory(int id);
+    Task DeleteSubCategory(int id);
+    Task DeleteTag(int id);
     Task<bool> CategorySlugExists(string slug);
+    Task<bool> CategorySlugExists(string slug, int excludedCategoryId);
     Task<bool> SubCategorySlugExists(string slug);
+    Task<bool> SubCategorySlugExists(string slug, int excludedSubCategoryId);
+    Task<bool> TagSlugExists(string slug);
+    Task<bool> TagSlugExists(string slug, int excludedTagId);
+    Task<bool> TagExists(int tagId);
+    Task<bool> IsCategoryInUse(int categoryId);
+    Task<bool> IsSubCategoryInUse(int subCategoryId);
+    Task<bool> IsTagInUse(int tagId);
 }

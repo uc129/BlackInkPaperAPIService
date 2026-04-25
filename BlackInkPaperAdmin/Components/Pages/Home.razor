@@ -1,17 +1,136 @@
 @page "/"
-@inject NavigationManager Navigation
-@inject AdminSession Session
+<PageTitle>Dashboard — Black Ink Paper Admin</PageTitle>
 
-<PageTitle>Admin Home</PageTitle>
+<div class="page-header">
+    <div>
+        <h1 class="h-page">Good morning, Utkarsh</h1>
+        <p class="lead">Here's what's happening in your catalog this week.</p>
+    </div>
+    <div class="page-actions">
+        <button class="btn btn-secondary"><Icon Name="download" /> Export</button>
+        <a href="/products/create" class="btn btn-primary"><Icon Name="plus" /> New product</a>
+    </div>
+</div>
 
-<h1>Admin Home</h1>
+<!-- Stat cards — numbers + week-on-week delta -->
+<div class="stat-grid">
+    <div class="stat">
+        <div class="stat-label">Total products</div>
+        <div class="stat-value">86</div>
+        <div class="stat-meta">
+            <span class="stat-delta up">
+                <Icon Name="arrowUp" Size="11" StrokeWidth="2.4" /> +4
+            </span>
+            <span class="muted">vs. last week</span>
+        </div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">Available</div>
+        <div class="stat-value">71</div>
+        <div class="stat-meta">
+            <span class="stat-delta up">
+                <Icon Name="arrowUp" Size="11" StrokeWidth="2.4" /> +2
+            </span>
+            <span class="muted">vs. last week</span>
+        </div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">Drafts</div>
+        <div class="stat-value">15</div>
+        <div class="stat-meta">
+            <span class="stat-delta down">
+                <Icon Name="arrowDown" Size="11" StrokeWidth="2.4" /> −1
+            </span>
+            <span class="muted">vs. last week</span>
+        </div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">Featured</div>
+        <div class="stat-value">9</div>
+        <div class="stat-meta">
+            <span class="stat-delta flat">0</span>
+            <span class="muted">vs. last week</span>
+        </div>
+    </div>
+</div>
 
-<p class="muted">Redirecting...</p>
+<!-- Bottom row: recent products + weekly chart -->
+<div class="grid-2 mt-4" style="grid-template-columns: 1.5fr 1fr">
+
+    <!-- Recent products -->
+    <div class="card">
+        <div class="card-pad" style="padding-bottom: 12px">
+            <div class="row">
+                <h2 class="h-section">Recent products</h2>
+                <span class="spacer"></span>
+                <a href="/products" class="btn btn-ghost btn-sm">
+                    View all <Icon Name="chevronRight" Size="12" />
+                </a>
+            </div>
+        </div>
+        @foreach (var p in _recentProducts)
+        {
+            <div class="card-row" style="padding: 10px 22px">
+                <div class="product-thumb" style="width:36px;height:36px;background:@p.Swatch;flex-shrink:0"></div>
+                <div style="flex:1;min-width:0">
+                    <div class="product-name" style="font-size:13.5px">@p.Name</div>
+                    <div class="product-meta">
+                        <span>@p.Artist</span>
+                        <span class="sep">·</span>
+                        <span class="mono">@p.Code</span>
+                    </div>
+                </div>
+                <span class="product-price tabular">@FmtINR(p.Price)</span>
+                <span class="badge @(p.Status == "live" ? "live" : "draft")">
+                    <span class="dot"></span> @p.Status
+                </span>
+            </div>
+        }
+    </div>
+
+    <!-- Weekly chart -->
+    <div class="card card-pad">
+        <h2 class="h-section">This week</h2>
+        <p class="muted" style="font-size:13px;margin-top:4px">Sales, by day</p>
+        <div class="bar-mini mt-4" style="height:90px">
+            @foreach (var (val, idx) in _weeklyData.Select((v, i) => (v, i)))
+            {
+                <div class="b @(idx == _weeklyData.Length - 1 ? "" : "")"
+                     style="height:@(val)%;background:@(idx == _weeklyData.Length - 1 ? "var(--accent)" : "var(--accent-soft)")">
+                </div>
+            }
+        </div>
+        <div class="row mt-3" style="font-size:11px;color:var(--ink-400);justify-content:space-between">
+            @foreach (var day in new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" })
+            {
+                <span>@day</span>
+            }
+        </div>
+        <div class="divider"></div>
+        <div class="row" style="justify-content:space-between">
+            <div>
+                <div class="muted" style="font-size:12px">Revenue</div>
+                <div class="h-display" style="font-size:24px;margin-top:2px">@FmtINR(184200)</div>
+            </div>
+            <div class="badge live"><span class="dot"></span> +18%</div>
+        </div>
+    </div>
+
+</div>
 
 @code {
-    protected override async Task OnInitializedAsync()
-    {
-        await Session.EnsureLoadedAsync();
-        Navigation.NavigateTo(Session.IsAuthenticated ? "/products" : "/login", true);
-    }
+    private record ProductRow(string Name, string Artist, string Code, decimal Price, string Status, string Swatch);
+
+    private readonly ProductRow[] _recentProducts =
+    [
+        new("Hawa Mahal at Dawn",      "Aanya Mehta",   "HMD-018", 4800, "live",  "#1f1a16"),
+        new("Banyan, Folded",          "Mira Kulkarni", "BNF-002", 3200, "live",  "#3b322b"),
+        new("Saraswati, Sketch No. 4", "Ila Banerjee",  "SR4-007", 1800, "live",  "#2a241f"),
+        new("Varanasi Ghats, IV",      "Kabir Joshi",   "VRG-004", 5400, "live",  "#1c1814"),
+    ];
+
+    private readonly int[] _weeklyData = [34, 22, 41, 28, 56, 70, 48];
+
+    private static string FmtINR(decimal amount) =>
+        amount.ToString("C0", new System.Globalization.CultureInfo("en-IN"));
 }

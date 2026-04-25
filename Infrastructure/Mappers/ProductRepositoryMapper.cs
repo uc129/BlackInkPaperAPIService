@@ -34,7 +34,6 @@ public static class ProductRepositoryMapper
         parameters.Add("CreatedBy", product.CreatedBy);
         parameters.Add("UpdatedAt", product.UpdatedAt);
         parameters.Add("UpdatedBy", product.UpdatedBy);
-        parameters.Add("ArtSpecId", product.ArtSpecId);
         parameters.Add("IsUsingStandardVariants", product.IsUsingStandardVariants);
         return parameters;
     }
@@ -73,7 +72,6 @@ public static class ProductRepositoryMapper
             CreatedBy = row.CreatedBy,
             UpdatedAt = row.UpdatedAt,
             UpdatedBy = row.UpdatedBy,
-            ArtSpecId = row.ArtSpecId,
             IsUsingStandardVariants = row.IsUsingStandardVariants,
             ArtSpecs = ToArtSpecifications(artSpecifications),
             Images = images,
@@ -82,10 +80,10 @@ public static class ProductRepositoryMapper
         };
     }
 
-    public static DynamicParameters ToArtSpecificationsParameters(int? id, ArtSpecifications artSpecifications)
+    public static DynamicParameters ToArtSpecificationsParameters(int productId, ArtSpecifications artSpecifications)
     {
         var parameters = new DynamicParameters();
-        parameters.Add("Id", id);
+        parameters.Add("ProductId", productId);
         parameters.Add("Width", artSpecifications.PhysicalDimensions?.Width);
         parameters.Add("Height", artSpecifications.PhysicalDimensions?.Height);
         parameters.Add("Unit", artSpecifications.PhysicalDimensions?.Unit.ToString());
@@ -154,7 +152,6 @@ public static class ProductRepositoryMapper
         public string CreatedBy { get; init; } = string.Empty;
         public DateTime UpdatedAt { get; init; }
         public string UpdatedBy { get; init; } = string.Empty;
-        public int ArtSpecId { get; init; }
         public bool IsUsingStandardVariants { get; init; }
     }
 

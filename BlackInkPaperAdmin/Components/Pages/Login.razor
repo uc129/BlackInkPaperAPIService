@@ -1,90 +1,63 @@
 @page "/login"
-@inject AuthApiClient AuthApiClient
-@inject AdminSession Session
-@inject NavigationManager Navigation
-@inject ILogger<Login> Logger
-
-
-<PageTitle>Login</PageTitle>
+@layout EmptyLayout
+<PageTitle>Sign in — Black Ink Paper Admin</PageTitle>
 
 <div class="auth-shell">
     <div class="auth-card">
-        <div class="eyebrow">Admin Access</div>
-        <h1>Sign in</h1>
-        <p class="muted">Use an `Artist` or `Admin` account from your API.</p>
-
-        <EditForm Model="model" OnValidSubmit="SubmitAsync">
-            <DataAnnotationsValidator />
-            <ValidationSummary />
-
-            <label>Email</label>
-            <InputText @bind-Value="model.Email" class="input" />
-
-            <label>Password</label>
-            <InputText @bind-Value="model.Password" type="password" class="input" />
-
-            @if (!string.IsNullOrWhiteSpace(errorMessage))
+        <div class="auth-brand">
+            <div class="brand-mark">B</div>
+            <div>
+                <div class="brand-name">Black Ink Paper</div>
+                <div class="brand-meta">Admin</div>
+            </div>
+        </div>
+        <h1 class="auth-title">Welcome back</h1>
+        <p class="auth-sub">Sign in to manage your catalog and orders.</p>
+        <div class="auth-form">
+            <div class="field-block">
+                <label class="lbl">Email</label>
+                <div class="field">
+                    <Icon Name="mail" />
+                    <input type="email" @bind="_email" placeholder="you@example.com" />
+                </div>
+            </div>
+            <div class="field-block">
+                <div class="row">
+                    <label class="lbl">Password</label>
+                    <span class="spacer"></span>
+                    <a href="#" class="link" style="font-size:12px">Forgot?</a>
+                </div>
+                <div class="field">
+                    <Icon Name="lock" />
+                    <input type="password" @bind="_password" placeholder="••••••••" />
+                </div>
+            </div>
+            @if (_error is not null)
             {
-                <p class="error-text">@errorMessage</p>
+                <div style="font-size:13px;color:var(--danger);display:flex;gap:6px;align-items:center">
+                    <Icon Name="alert" Size="13" /> @_error
+                </div>
             }
-
-            <button class="button" disabled="@submitting">
-                @(submitting ? "Signing in..." : "Login")
+            <button class="btn btn-primary btn-full" @onclick="HandleLogin" disabled="@_loading">
+                @(_loading ? "Signing in…" : "Sign in")
             </button>
-        </EditForm>
+        </div>
+        <div class="auth-foot">Need help? <a href="#" class="link">Contact support</a></div>
     </div>
 </div>
 
 @code {
-    private readonly LoginFormModel model = new();
-    private bool submitting;
-    private string? errorMessage;
+    private string _email = "";
+    private string _password = "";
+    private string? _error;
+    private bool _loading;
 
-    protected override async Task OnInitializedAsync()
+    private async Task HandleLogin()
     {
-        await Session.EnsureLoadedAsync();
-        if (Session.IsAuthenticated)
-        {
-            Navigation.NavigateTo("/products", true);
-        }
-    }
-
-    private async Task SubmitAsync()
-    {
-        submitting = true;
-        errorMessage = null;
-        Logger.LogInformation("Login attempt for user: {Email}", model.Email);
-        try
-        {
-            var response = await AuthApiClient.LoginAsync(new LoginRequest(model.Email, model.Password));
-            if (!response.Success || response.Data is null)
-            {
-                errorMessage = response.Message;
-                Logger.LogWarning("Login failed for {Email}: {Reason}", model.Email, response.Message);
-                submitting = false;
-                return;
-            }
-            Console.WriteLine(response.Data.Token);
-            await Session.SetTokenAsync(response.Data.Token);
-            Navigation.NavigateTo("/products");
-        }
-        catch(Exception ex)
-        {
-            submitting = false;
-            Logger.LogWarning("Login failed for {Email}: {Reason}", model.Email, ex.Message);
-        }
-        finally
-        {
-            submitting = false;
-        }
-    }
-
-    private sealed class LoginFormModel
-    {
-        [Required, EmailAddress]
-        public string Email { get; set; } = string.Empty;
-
-        [Required]
-        public string Password { get; set; } = string.Empty;
+        _loading = true;
+        _error = null;
+        await Task.Delay(600); // TODO: call auth API
+        _error = "Invalid credentials — API not wired up yet.";
+        _loading = false;
     }
 }

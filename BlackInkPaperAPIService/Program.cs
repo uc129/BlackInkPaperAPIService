@@ -33,7 +33,7 @@ Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string not found.");
 builder.Services.AddDbContext<AppIdentityDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseNpgsql(connectionString));
 builder.Services.AddIdentity<AppIdentityUser, IdentityRole>(options => {
     options.Password.RequireDigit = true;
     options.Password.RequiredLength = 8;
@@ -81,9 +81,14 @@ builder.Services.AddAuthentication(options => {
     };
 });
 
-
-
 var app = builder.Build();
+
+// Database Seeding
+// using (var scope = app.Services.CreateScope())
+// {
+//     var services = scope.ServiceProvider;
+//     await DbInitializer.InitializeAsync(services);
+// }
 
 
 if (!app.Environment.IsDevelopment())

@@ -45,9 +45,9 @@ public class CheckoutPricingService(
                     throw new InvalidOperationException($"A selected variant for '{item.Name}' is invalid.");
                 }
 
-                if (option.AbsolutePrice.HasValue)
+                if (option.AbsolutePrice.HasValue || variant.AbsolutePrice.HasValue)
                 {
-                    unitPrice = option.AbsolutePrice.Value;
+                    unitPrice = option.AbsolutePrice ?? variant.AbsolutePrice!.Value;
                 }
                 else if (option.PriceModifier.HasValue)
                 {
@@ -59,9 +59,9 @@ public class CheckoutPricingService(
                     throw new InvalidOperationException($"Insufficient stock for selected variant of '{item.Name}'.");
                 }
 
-                selectedSku = string.IsNullOrWhiteSpace(option.Sku) ? selectedSku : option.Sku;
-                requiresShipping |= option.FulfillmentType == ProductFulfillmentType.physical;
-                weightGrams += option.WeightGrams ?? 0m;
+                selectedSku = string.IsNullOrWhiteSpace(variant.Sku) ? selectedSku : variant.Sku;
+                requiresShipping |= variant.FulfillmentType == ProductFulfillmentType.physical;
+                weightGrams += variant.WeightGrams ?? 0m;
             }
 
             if (item.SelectedVariants.Count == 0 && product.StockQuantity.HasValue && item.Quantity > product.StockQuantity.Value)

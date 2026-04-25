@@ -55,7 +55,7 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                     @TagId IS NULL OR EXISTS (
                         SELECT 1
                         FROM Map_ProductTags m
-                        WHERE m.ProductId = p.Id AND m.ProductTagId = @TagId
+                        WHERE m.ProductId = p.Id AND m.TagId = @TagId
                     )
                 );
 
@@ -72,7 +72,7 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                     @TagId IS NULL OR EXISTS (
                         SELECT 1
                         FROM Map_ProductTags m
-                        WHERE m.ProductId = p.Id AND m.ProductTagId = @TagId
+                        WHERE m.ProductId = p.Id AND m.TagId = @TagId
                     )
                 )
             ORDER BY p.UpdatedAt DESC, p.Id DESC
@@ -134,7 +134,6 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 CreatedBy,
                 UpdatedAt,
                 UpdatedBy,
-                ArtSpecId,
                 IsUsingStandardVariants
             )
             VALUES
@@ -163,11 +162,9 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 @CreatedBy,
                 @UpdatedAt,
                 @UpdatedBy,
-                @ArtSpecId,
                 @IsUsingStandardVariants
-            );
-
-            SELECT CAST(SCOPE_IDENTITY() AS int);
+            ),
+            RETURNING (Id);
             """;
 
         using var connection = dapperContext.CreateConnection();
@@ -176,14 +173,14 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
 
         try
         {
-            product.ArtSpecId = await UpsertArtSpecifications(connection, transaction, product.ArtSpecId, product.ArtSpecs);
-
             var productId = await connection.ExecuteScalarAsync<int>(
                 insertProductSql,
                 ProductRepositoryMapper.ToProductParameters(product),
                 transaction);
 
             product.Id = productId;
+
+            await UpsertArtSpecifications(connection, transaction, product.Id, product.ArtSpecs);
 
             await ReplaceProductImages(connection, transaction, product.Id, product.Images);
             await ReplaceProductTags(connection, transaction, product.Id, product.Tags.Select(tag => tag.Id).ToList());
@@ -223,7 +220,6 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 StockQuantity = @StockQuantity,
                 UpdatedAt = @UpdatedAt,
                 UpdatedBy = @UpdatedBy,
-                ArtSpecId = @ArtSpecId,
                 IsUsingStandardVariants = @IsUsingStandardVariants
             WHERE Id = @Id;
             """;
@@ -234,12 +230,12 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
 
         try
         {
-            product.ArtSpecId = await UpsertArtSpecifications(connection, transaction, product.ArtSpecId, product.ArtSpecs);
-
             await connection.ExecuteAsync(
                 updateProductSql,
                 ProductRepositoryMapper.ToProductParameters(product),
                 transaction);
+
+            await UpsertArtSpecifications(connection, transaction, product.Id, product.ArtSpecs);
 
             await ReplaceProductImages(connection, transaction, product.Id, product.Images);
             await ReplaceProductTags(connection, transaction, product.Id, product.Tags.Select(tag => tag.Id).ToList());
@@ -292,15 +288,15 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
             DELETE FROM Map_ProductTags
             WHERE ProductId = @Id;
 
+            DELETE FROM ArtSpecifications
+            WHERE ProductId = @Id;
+
             DELETE FROM Products
             WHERE Id = @Id;
-
-            DELETE FROM ArtSpecifications
-            WHERE Id = @ArtSpecId;
             """;
 
         using var connection = dapperContext.CreateConnection();
-        await connection.ExecuteAsync(sql, new { product.Id, product.ArtSpecId });
+        await connection.ExecuteAsync(sql, new { product.Id });
     }
 
     public async Task<bool> ExistsBySlug(string slug, int? excludedProductId = null)
@@ -320,9 +316,6 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
 
     public async Task<bool> SubCategoryExists(int subCategoryId)
         => await ExistsById("ProductSubCategories", subCategoryId);
-
-    public async Task<bool> ArtSpecificationExists(int artSpecId)
-        => await ExistsById("ArtSpecifications", artSpecId);
 
     public async Task<IReadOnlyList<ArtistLookupDto>> GetArtists()
     {
@@ -428,9 +421,8 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 @IsFeatured,
                 @Slug,
                 @CoverImageUrl
-            );
-
-            SELECT
+            ),
+            RETURNING(
                 Id,
                 NameCode,
                 Name,
@@ -439,9 +431,7 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 Description,
                 CoverImageUrl,
                 IsActive,
-                IsFeatured
-            FROM ProductCategories
-            WHERE Id = CAST(SCOPE_IDENTITY() AS int);
+                IsFeatured);
             """;
 
         using var connection = dapperContext.CreateConnection();
@@ -474,7 +464,85 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 @IsFeatured,
                 @Slug,
                 @CoverImageUrl
-            );
+            ),
+            RETURNING(
+                Id,
+                CategoryId,
+                NameCode,
+                Name,
+                PrintName,
+                Slug,
+                Description,
+                CoverImageUrl,
+                IsActive,
+                IsFeatured);
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        return await connection.QuerySingleAsync<ProductSubCategoryLookupDto>(sql, request);
+    }
+
+    public async Task<ProductCategoryLookupDto?> UpdateCategory(int id, UpdateProductCategoryRequest request)
+    {
+        const string sql = """
+            UPDATE ProductCategories
+            SET
+                NameCode = @NameCode,
+                Name = @Name,
+                PrintName = @PrintName,
+                Description = @Description,
+                IsActive = @IsActive,
+                IsFeatured = @IsFeatured,
+                Slug = @Slug,
+                CoverImageUrl = @CoverImageUrl
+            WHERE Id = @Id;
+
+            SELECT
+                Id,
+                NameCode,
+                Name,
+                PrintName,
+                Slug,
+                Description,
+                CoverImageUrl,
+                IsActive,
+                IsFeatured
+            FROM ProductCategories
+            WHERE Id = @Id;
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        await using var multi = await connection.QueryMultipleAsync(sql, new
+        {
+            Id = id,
+            request.NameCode,
+            request.Name,
+            request.PrintName,
+            request.Description,
+            request.IsActive,
+            request.IsFeatured,
+            request.Slug,
+            request.CoverImageUrl
+        });
+
+        return await multi.ReadSingleOrDefaultAsync<ProductCategoryLookupDto>();
+    }
+
+    public async Task<ProductSubCategoryLookupDto?> UpdateSubCategory(int id, UpdateProductSubCategoryRequest request)
+    {
+        const string sql = """
+            UPDATE ProductSubCategories
+            SET
+                CategoryId = @CategoryId,
+                NameCode = @NameCode,
+                Name = @Name,
+                PrintName = @PrintName,
+                Description = @Description,
+                IsActive = @IsActive,
+                IsFeatured = @IsFeatured,
+                Slug = @Slug,
+                CoverImageUrl = @CoverImageUrl
+            WHERE Id = @Id;
 
             SELECT
                 Id,
@@ -488,18 +556,148 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 IsActive,
                 IsFeatured
             FROM ProductSubCategories
-            WHERE Id = CAST(SCOPE_IDENTITY() AS int);
+            WHERE Id = @Id;
             """;
 
         using var connection = dapperContext.CreateConnection();
-        return await connection.QuerySingleAsync<ProductSubCategoryLookupDto>(sql, request);
+        await using var multi = await connection.QueryMultipleAsync(sql, new
+        {
+            Id = id,
+            request.CategoryId,
+            request.NameCode,
+            request.Name,
+            request.PrintName,
+            request.Description,
+            request.IsActive,
+            request.IsFeatured,
+            request.Slug,
+            request.CoverImageUrl
+        });
+
+        return await multi.ReadSingleOrDefaultAsync<ProductSubCategoryLookupDto>();
+    }
+
+    public async Task<ProductTagDto> CreateTag(CreateProductTagRequest request)
+    {
+        const string sql = """
+            INSERT INTO ProductTags
+            (
+                Name,
+                Slug,
+                Color,
+                CreatedAt
+            )
+            VALUES
+            (
+                @Name,
+                @Slug,
+                @Color,
+                CURRENT_TIMESTAMP
+            ),
+            RETURNING(
+                Id,
+                Name,
+                Slug,
+                Color);
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        return await connection.QuerySingleAsync<ProductTagDto>(sql, request);
+    }
+
+    public async Task<ProductTagDto?> UpdateTag(int id, UpdateProductTagRequest request)
+    {
+        const string sql = """
+            UPDATE ProductTags
+            SET
+                Name = @Name,
+                Slug = @Slug,
+                Color = @Color
+            WHERE Id = @Id;
+
+            SELECT
+                Id,
+                Name,
+                Slug,
+                Color
+            FROM ProductTags
+            WHERE Id = @Id;
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        await using var multi = await connection.QueryMultipleAsync(sql, new
+        {
+            Id = id,
+            request.Name,
+            request.Slug,
+            request.Color
+        });
+
+        return await multi.ReadSingleOrDefaultAsync<ProductTagDto>();
+    }
+
+    public async Task DeleteCategory(int id)
+    {
+        const string sql = """
+            DELETE FROM ProductCategories
+            WHERE Id = @Id;
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        await connection.ExecuteAsync(sql, new { Id = id });
+    }
+
+    public async Task DeleteSubCategory(int id)
+    {
+        const string sql = """
+            DELETE FROM ProductSubCategories
+            WHERE Id = @Id;
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        await connection.ExecuteAsync(sql, new { Id = id });
+    }
+
+    public async Task DeleteTag(int id)
+    {
+        const string sql = """
+            DELETE FROM ProductTags
+            WHERE Id = @Id;
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        await connection.ExecuteAsync(sql, new { Id = id });
     }
 
     public async Task<bool> CategorySlugExists(string slug)
         => await ExistsBySlug("ProductCategories", slug);
 
+    public async Task<bool> CategorySlugExists(string slug, int excludedCategoryId)
+        => await ExistsBySlug("ProductCategories", slug, excludedCategoryId);
+
     public async Task<bool> SubCategorySlugExists(string slug)
         => await ExistsBySlug("ProductSubCategories", slug);
+
+    public async Task<bool> SubCategorySlugExists(string slug, int excludedSubCategoryId)
+        => await ExistsBySlug("ProductSubCategories", slug, excludedSubCategoryId);
+
+    public async Task<bool> TagSlugExists(string slug)
+        => await ExistsBySlug("ProductTags", slug);
+
+    public async Task<bool> TagSlugExists(string slug, int excludedTagId)
+        => await ExistsBySlug("ProductTags", slug, excludedTagId);
+
+    public async Task<bool> TagExists(int tagId)
+        => await ExistsById("ProductTags", tagId);
+
+    public async Task<bool> IsCategoryInUse(int categoryId)
+        => await ExistsByForeignKey("Products", "CategoryId", categoryId);
+
+    public async Task<bool> IsSubCategoryInUse(int subCategoryId)
+        => await ExistsByForeignKey("Products", "SubCategoryId", subCategoryId);
+
+    public async Task<bool> IsTagInUse(int tagId)
+        => await ExistsByForeignKey("Map_ProductTags", "TagId", tagId);
 
     private async Task<ProductAggregate?> GetSingleByColumn<TValue>(string columnName, TValue value)
     {
@@ -508,25 +706,26 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
             FROM Products
             WHERE {columnName} = @Value;
 
-            SELECT TOP 1 specs.*
+            SELECT specs.*
             FROM ArtSpecifications specs
-            INNER JOIN Products p ON p.ArtSpecId = specs.Id
-            WHERE p.{columnName} = @Value;
+            INNER JOIN Products p ON p.Id = specs.ProductId
+            WHERE p.{columnName} = @Value
+            LIMIT 1;
 
             SELECT *
             FROM ProductImages
-            WHERE ProductId = (SELECT TOP 1 Id FROM Products WHERE {columnName} = @Value)
+            WHERE ProductId = (SELECT Id FROM Products WHERE {columnName} = @Value LIMIT 1)
             ORDER BY DisplayOrder, Id;
 
             SELECT tags.*
             FROM ProductTags tags
-            INNER JOIN Map_ProductTags map ON map.ProductTagId = tags.Id
-            WHERE map.ProductId = (SELECT TOP 1 Id FROM Products WHERE {columnName} = @Value)
+            INNER JOIN Map_ProductTags map ON map.TagId = tags.Id
+            WHERE map.ProductId = (SELECT Id FROM Products WHERE {columnName} = @Value LIMIT 1)
             ORDER BY tags.Id;
 
             SELECT *
             FROM ProductVariants
-            WHERE ProductId = (SELECT TOP 1 Id FROM Products WHERE {columnName} = @Value)
+            WHERE ProductId = (SELECT Id FROM Products WHERE {columnName} = @Value LIMIT 1)
             ORDER BY Id;
 
             SELECT *
@@ -534,7 +733,7 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
             WHERE ProductVariantId IN (
                 SELECT Id
                 FROM ProductVariants
-                WHERE ProductId = (SELECT TOP 1 Id FROM Products WHERE {columnName} = @Value)
+                WHERE ProductId = (SELECT Id FROM Products WHERE {columnName} = @Value LIMIT 1)
             )
             ORDER BY ProductVariantId, Id;
             """;
@@ -562,15 +761,16 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
         return ProductRepositoryMapper.ToAggregate(productRow, artSpecifications, images, tags, variants);
     }
 
-    private static async Task<int> UpsertArtSpecifications(
+    private static async Task UpsertArtSpecifications(
         IDbConnection connection,
         IDbTransaction transaction,
-        int existingArtSpecId,
+        int productId,
         ArtSpecifications artSpecifications)
     {
         const string insertSql = """
             INSERT INTO ArtSpecifications
             (
+                ProductId,
                 Width,
                 Height,
                 Unit,
@@ -583,6 +783,7 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
             )
             VALUES
             (
+                @ProductId,
                 @Width,
                 @Height,
                 @Unit,
@@ -593,8 +794,6 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 @ResolutionDpi,
                 @PixelDimensions
             );
-
-            SELECT CAST(SCOPE_IDENTITY() AS int);
             """;
 
         const string updateSql = """
@@ -609,38 +808,33 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 FileFormat = @FileFormat,
                 ResolutionDpi = @ResolutionDpi,
                 PixelDimensions = @PixelDimensions
-            WHERE Id = @Id;
+            WHERE ProductId = @ProductId;
             """;
 
-        if (existingArtSpecId > 0)
-        {
-            var rowsAffected = await connection.ExecuteAsync(
-                updateSql,
-                ProductRepositoryMapper.ToArtSpecificationsParameters(existingArtSpecId, artSpecifications),
-                transaction);
-
-            if (rowsAffected > 0)
-            {
-                return existingArtSpecId;
-            }
-        }
-
-        return await connection.ExecuteScalarAsync<int>(
-            insertSql,
-            ProductRepositoryMapper.ToArtSpecificationsParameters(null, artSpecifications),
+        var rowsAffected = await connection.ExecuteAsync(
+            updateSql,
+            ProductRepositoryMapper.ToArtSpecificationsParameters(productId, artSpecifications),
             transaction);
+
+        if (rowsAffected == 0)
+        {
+            await connection.ExecuteAsync(
+                insertSql,
+                ProductRepositoryMapper.ToArtSpecificationsParameters(productId, artSpecifications),
+                transaction);
+        }
     }
 
     private async Task<bool> ExistsInProducts(string columnName, string value, int? excludedProductId)
     {
         var sql = $"""
-            SELECT CAST(CASE WHEN EXISTS
+            SELECT EXISTS
             (
                 SELECT 1
                 FROM Products
                 WHERE {columnName} = @Value
                   AND (@ExcludedProductId IS NULL OR Id <> @ExcludedProductId)
-            ) THEN 1 ELSE 0 END AS bit);
+            );
             """;
 
         using var connection = dapperContext.CreateConnection();
@@ -650,12 +844,12 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
     private async Task<bool> ExistsById(string tableName, int id)
     {
         var sql = $"""
-            SELECT CAST(CASE WHEN EXISTS
+            SELECT EXISTS
             (
                 SELECT 1
                 FROM {tableName}
                 WHERE Id = @Id
-            ) THEN 1 ELSE 0 END AS bit);
+            );
             """;
 
         using var connection = dapperContext.CreateConnection();
@@ -665,16 +859,47 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
     private async Task<bool> ExistsBySlug(string tableName, string slug)
     {
         var sql = $"""
-            SELECT CAST(CASE WHEN EXISTS
+            SELECT EXISTS
             (
                 SELECT 1
                 FROM {tableName}
                 WHERE Slug = @Slug
-            ) THEN 1 ELSE 0 END AS bit);
+            );
             """;
 
         using var connection = dapperContext.CreateConnection();
         return await connection.ExecuteScalarAsync<bool>(sql, new { Slug = slug });
+    }
+
+    private async Task<bool> ExistsBySlug(string tableName, string slug, int excludedId)
+    {
+        var sql = $"""
+            SELECT EXISTS
+            (
+                SELECT 1
+                FROM {tableName}
+                WHERE Slug = @Slug
+                  AND Id <> @ExcludedId
+            );
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        return await connection.ExecuteScalarAsync<bool>(sql, new { Slug = slug, ExcludedId = excludedId });
+    }
+
+    private async Task<bool> ExistsByForeignKey(string tableName, string columnName, int value)
+    {
+        var sql = $"""
+            SELECT EXISTS
+            (
+                SELECT 1
+                FROM {tableName}
+                WHERE {columnName} = @Value
+            );
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        return await connection.ExecuteScalarAsync<bool>(sql, new { Value = value });
     }
 
     private static async Task ReplaceProductImages(
@@ -738,15 +963,15 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
             """;
 
         const string insertSql = """
-            INSERT INTO Map_ProductTags (ProductId, ProductTagId)
-            VALUES (@ProductId, @ProductTagId);
+            INSERT INTO Map_ProductTags (ProductId, TagId)
+            VALUES (@ProductId, @TagId);
             """;
 
         await connection.ExecuteAsync(deleteSql, new { ProductId = productId }, transaction);
 
         foreach (var tagId in tagIds.Distinct())
         {
-            await connection.ExecuteAsync(insertSql, new { ProductId = productId, ProductTagId = tagId }, transaction);
+            await connection.ExecuteAsync(insertSql, new { ProductId = productId, TagId = tagId }, transaction);
         }
     }
 
@@ -767,10 +992,9 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
             """;
 
         const string insertVariantSql = """
-            INSERT INTO ProductVariants (ProductId, Label)
-            VALUES (@ProductId, @Label);
-
-            SELECT CAST(SCOPE_IDENTITY() AS int);
+            INSERT INTO ProductVariants (ProductId, Label, FulfillmentType, Sku, WeightGrams, StockQuantity, AbsolutePrice)
+            VALUES (@ProductId, @Label, @FulfillmentType, @Sku, @WeightGrams, @StockQuantity, @AbsolutePrice),
+            RETURNING (Id);
             """;
 
         const string insertOptionSql = """
@@ -780,10 +1004,7 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 Value,
                 PriceModifier,
                 AbsolutePrice,
-                StockQuantity,
-                FulfillmentType,
-                Sku,
-                WeightGrams
+                StockQuantity
             )
             VALUES
             (
@@ -791,10 +1012,7 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 @Value,
                 @PriceModifier,
                 @AbsolutePrice,
-                @StockQuantity,
-                @FulfillmentType,
-                @Sku,
-                @WeightGrams
+                @StockQuantity
             );
             """;
 
@@ -806,7 +1024,16 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
             variant.ProductId = productId;
             var variantId = await connection.ExecuteScalarAsync<int>(
                 insertVariantSql,
-                new { ProductId = productId, variant.Label },
+                new
+                {
+                    ProductId = productId,
+                    variant.Label,
+                    FulfillmentType = (int)variant.FulfillmentType,
+                    variant.Sku,
+                    variant.WeightGrams,
+                    variant.StockQuantity,
+                    variant.AbsolutePrice
+                },
                 transaction);
 
             foreach (var option in variant.Options)
@@ -818,10 +1045,7 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                     option.Value,
                     option.PriceModifier,
                     option.AbsolutePrice,
-                    option.StockQuantity,
-                    FulfillmentType = (int)option.FulfillmentType,
-                    option.Sku,
-                    option.WeightGrams
+                    option.StockQuantity
                 }, transaction);
             }
         }

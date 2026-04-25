@@ -49,3 +49,34 @@ public record CreateProductSubCategoryRequest(
     string? CoverImageUrl,
     bool IsActive = true,
     bool IsFeatured = false);
+
+public record UpdateProductCategoryRequest(
+    string NameCode,
+    string Name,
+    string PrintName,
+    string Slug,
+    string? Description,
+    string? CoverImageUrl,
+    bool IsActive = true,
+    bool IsFeatured = false);
+
+public record UpdateProductSubCategoryRequest(
+    int CategoryId,
+    string NameCode,
+    string Name,
+    string PrintName,
+    string Slug,
+    string? Description,
+    string? CoverImageUrl,
+    bool IsActive = true,
+    bool IsFeatured = false);
+
+public record CreateProductTagRequest(
+    string Name,
+    string Slug,
+    string? Color);
+
+public record UpdateProductTagRequest(
+    string Name,
+    string Slug,
+    string? Color);

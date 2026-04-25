@@ -3,6 +3,7 @@
     public class ArtSpecifications
     {
         // Physical Art Details
+        public int ProductId { get; set; }
         public Dimensions? PhysicalDimensions { get; set; }
         public int? WeightGrams { get; set; }
         public bool? IsFramed { get; set; }

@@ -28,7 +28,6 @@ namespace Domain.Aggregates.Ecommerce
         public bool IsAvailable { get; set; }
 
         // Domain Specifics 
-        public int ArtSpecId { get; set; }
         public bool IsUsingStandardVariants { get; set; }
         public string CoverImageUrl { get; set; } = string.Empty;
         public string HeaderImageUrl { get; set; } = string.Empty;

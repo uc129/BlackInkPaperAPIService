@@ -25,18 +25,18 @@ public class SeedController(
         try
         {
             // 1. Clear Tables
-            await ExecuteSqlScript("00_ClearTables.sql");
+            // await ExecuteSqlScript("00_ClearTables.sql");
 
             // 2. Seed Identity (C# for Hashing)
             await SeedIdentity.SeedRolesAsync(serviceProvider);
-            await SeedIdentity.SeedAdminUser(serviceProvider);
+            await SeedIdentity.SeedAdminUserAsync(serviceProvider);
             
             // Seed a default artist user for testing catalog
-            await SeedArtistUser("user-artist", "artist@artist.com", "Artist@123!");
-
-            // 3. Seed Catalog & Commerce
-            await ExecuteSqlScript("20_SeedCatalog.sql");
-            await ExecuteSqlScript("30_SeedCommerce.sql");
+            // await SeedArtistUser("user-artist", "artist@artist.com", "Artist@123!");
+            //
+            // // 3. Seed Catalog & Commerce
+            // await ExecuteSqlScript("20_SeedCatalog.sql");
+            // await ExecuteSqlScript("30_SeedCommerce.sql");
 
             return Ok(new { Message = "Database cleared and seeded successfully." });
         }
@@ -62,7 +62,7 @@ public class SeedController(
 
             // 2. Seed Identity (C# for Hashing)
             await SeedIdentity.SeedRolesAsync(serviceProvider);
-            await SeedIdentity.SeedAdminUser(serviceProvider);
+            await SeedIdentity.SeedAdminUserAsync(serviceProvider);
             
             // Seed a default artist user for testing catalog
             await SeedArtistUser("user-artist", "artist@artist.com", "Artist@123!");

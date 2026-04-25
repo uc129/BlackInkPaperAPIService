@@ -56,4 +56,47 @@ public class AdminProductReferenceController(IProductReferenceDataService produc
 
         return StatusCode(response.StatusCode, response);
     }
+
+    [HttpPut("categories/{id:int}")]
+    [ProducesResponseType<ProductCategoryLookupDto>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateCategory(int id, [FromBody] UpdateProductCategoryRequest request, CancellationToken cancellationToken)
+        => this.ToApiResult(await productReferenceDataService.UpdateCategoryAsync(id, request, cancellationToken));
+
+    [HttpDelete("categories/{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> DeleteCategory(int id, CancellationToken cancellationToken)
+        => this.ToApiResult(await productReferenceDataService.DeleteCategoryAsync(id, cancellationToken));
+
+    [HttpPut("subcategories/{id:int}")]
+    [ProducesResponseType<ProductSubCategoryLookupDto>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateSubCategory(int id, [FromBody] UpdateProductSubCategoryRequest request, CancellationToken cancellationToken)
+        => this.ToApiResult(await productReferenceDataService.UpdateSubCategoryAsync(id, request, cancellationToken));
+
+    [HttpDelete("subcategories/{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> DeleteSubCategory(int id, CancellationToken cancellationToken)
+        => this.ToApiResult(await productReferenceDataService.DeleteSubCategoryAsync(id, cancellationToken));
+
+    [HttpPost("tags")]
+    [ProducesResponseType<ProductTagDto>(StatusCodes.Status201Created)]
+    public async Task<IActionResult> CreateTag([FromBody] CreateProductTagRequest request, CancellationToken cancellationToken)
+    {
+        var response = await productReferenceDataService.CreateTagAsync(request, cancellationToken);
+        if (!response.Success || response.Data is null)
+        {
+            return this.ToApiResult(response);
+        }
+
+        return StatusCode(response.StatusCode, response);
+    }
+
+    [HttpPut("tags/{id:int}")]
+    [ProducesResponseType<ProductTagDto>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateTag(int id, [FromBody] UpdateProductTagRequest request, CancellationToken cancellationToken)
+        => this.ToApiResult(await productReferenceDataService.UpdateTagAsync(id, request, cancellationToken));
+
+    [HttpDelete("tags/{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> DeleteTag(int id, CancellationToken cancellationToken)
+        => this.ToApiResult(await productReferenceDataService.DeleteTagAsync(id, cancellationToken));
 }

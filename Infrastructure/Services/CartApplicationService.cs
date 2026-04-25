@@ -256,9 +256,9 @@ public class CartApplicationService(
                 VariantLabel = variant.Label,
                 OptionValue = option.Value,
                 PriceModifier = option.PriceModifier,
-                AbsolutePrice = option.AbsolutePrice,
-                Sku = option.Sku,
-                FulfillmentType = option.FulfillmentType
+                AbsolutePrice = option.AbsolutePrice ?? variant.AbsolutePrice,
+                Sku = variant.Sku,
+                FulfillmentType = variant.FulfillmentType
             });
         }
 

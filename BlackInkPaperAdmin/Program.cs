@@ -1,25 +1,20 @@
 using BlackInkPaperAdmin.Components;
-using BlackInkPaperAdmin.Services;
-
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.Configure<AdminApiOptions>(builder.Configuration.GetSection("AdminApi"));
-builder.Services.AddScoped<AdminSession>();
-builder.Services.AddScoped<AuthApiClient>();
-builder.Services.AddScoped<ProductAdminApiClient>();
-builder.Services.AddScoped<ProductReferenceApiClient>();
-builder.Services.AddScoped(_ => new HttpClient());
+builder.Services.AddHttpClient("AdminApi", client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["AdminApi:BaseUrl"] ?? "https://localhost:7023/");
+});
+
+builder.Services.AddScoped(sp =>
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient("AdminApi"));
 
 builder.Services.AddLocalStorageServices();
-builder.Services.AddServerSideBlazor()
-    .AddCircuitOptions(options =>
-    {
-        options.DetailedErrors = true;
-    });
 
 var app = builder.Build();
 
@@ -29,11 +24,10 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-
-
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAntiforgery();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

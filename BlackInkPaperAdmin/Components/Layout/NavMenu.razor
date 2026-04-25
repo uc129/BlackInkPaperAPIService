@@ -1,7 +1,62 @@
-@using Microsoft.AspNetCore.Components
+@inject NavigationManager Nav
 
-<nav class="nav">
-    <NavLink href="/" Match="NavLinkMatch.All" class="nav-link">Overview</NavLink>
-    <NavLink href="/products" class="nav-link">Products</NavLink>
-    <NavLink href="/products/new" class="nav-link">Create Product</NavLink>
-</nav>
+<aside class="sidebar">
+    <div class="brand">
+        <div class="brand-mark">B</div>
+        <div>
+            <div class="brand-name">Black Ink Paper</div>
+            <div class="brand-meta">Admin · v1.0</div>
+        </div>
+    </div>
+
+    <div class="nav-group">
+        <div class="nav-group-label">Workspace</div>
+        <NavLink class="nav-item" href="/" Match="NavLinkMatch.All">
+            <Icon Name="home" CssClass="nav-icon" />
+            <span>Dashboard</span>
+        </NavLink>
+        <NavLink class="nav-item" href="/products">
+            <Icon Name="package" CssClass="nav-icon" />
+            <span>Products</span>
+        </NavLink>
+    </div>
+
+    <div class="nav-group">
+        <div class="nav-group-label">Catalog</div>
+        <NavLink class="nav-item" href="/catalog/categories">
+            <Icon Name="layers" CssClass="nav-icon" />
+            <span>Categories</span>
+        </NavLink>
+        <NavLink class="nav-item" href="/catalog/subcategories">
+            <Icon Name="layers" CssClass="nav-icon" />
+            <span>Subcategories</span>
+        </NavLink>
+        <NavLink class="nav-item" href="/catalog/tags">
+            <Icon Name="tag" CssClass="nav-icon" />
+            <span>Tags</span>
+        </NavLink>
+        <NavLink class="nav-item" href="/catalog/artists">
+            <Icon Name="users" CssClass="nav-icon" />
+            <span>Artists</span>
+        </NavLink>
+    </div>
+
+    <div class="nav-group">
+        <div class="nav-group-label">Account</div>
+        <NavLink class="nav-item" href="/settings">
+            <Icon Name="settings" CssClass="nav-icon" />
+            <span>Settings</span>
+        </NavLink>
+    </div>
+
+    <div class="sidebar-footer">
+        <div class="avatar">UC</div>
+        <div class="flex-col" style="min-width:0">
+            <div class="user-name">Utkarsh C.</div>
+            <div class="user-role">Owner</div>
+        </div>
+        <a href="/login" class="btn btn-icon btn-ghost" style="margin-left:auto" title="Sign out">
+            <Icon Name="logout" />
+        </a>
+    </div>
+</aside>

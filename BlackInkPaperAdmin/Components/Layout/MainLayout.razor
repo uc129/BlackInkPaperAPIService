@@ -1,49 +1,79 @@
-@inject AdminSession Session
-@inject NavigationManager Navigation
 @inherits LayoutComponentBase
+@inject NavigationManager Nav
+@implements IDisposable
 
-<div class="shell">
-    <aside class="sidebar">
-        <div class="brand">
-            <div class="brand-mark">BIP</div>
-            <div>
-                <div class="brand-title">Admin Console</div>
-                <div class="brand-subtitle">Blazor backoffice</div>
-            </div>
-        </div>
-
-        <NavMenu />
-    </aside>
-
-    <main class="content">
+<div class="shell" data-density="@_density">
+    <NavMenu />
+    <div>
         <header class="topbar">
-            <div>
-                <div class="eyebrow">Black Ink Paper</div>
-                <div class="title">@CurrentTitle</div>
+            <div class="crumbs">
+                @{
+                    var crumbs = GetCrumbs();
+                    for (var i = 0; i < crumbs.Length; i++)
+                    {
+                        if (i == crumbs.Length - 1)
+                        {
+                            <span class="here">@crumbs[i]</span>
+                        }
+                        else
+                        {
+                            <span>@crumbs[i]</span>
+                            <span class="sep">›</span>
+                        }
+                    }
+                }
             </div>
-
-            @if (Session.IsAuthenticated)
-            {
-                <div class="top-actions">
-                    <span class="pill">@Session.DisplayName</span>
-                    <button class="button secondary" @onclick="LogoutAsync">Logout</button>
+            <div class="topbar-spacer"></div>
+            <div class="topbar-actions">
+                <div class="density-toggle" title="Density">
+                    <button class="@(_density == "comfortable" ? "on" : "")" @onclick='() => SetDensity("comfortable")'>
+                        <Icon Name="rows" Size="12" /> Comfy
+                    </button>
+                    <button class="@(_density == "compact" ? "on" : "")" @onclick='() => SetDensity("compact")'>
+                        <Icon Name="grid3" Size="12" /> Compact
+                    </button>
                 </div>
-            }
+                <button class="btn btn-icon btn-ghost" title="Notifications">
+                    <Icon Name="bell" />
+                </button>
+            </div>
         </header>
-     @Body
-    </main>
+        <main class="content">
+            @Body
+        </main>
+    </div>
 </div>
 
 @code {
-    private string CurrentTitle => Navigation.ToBaseRelativePath(Navigation.Uri).Trim('/') switch
-    {
-        "" => "Dashboard",
-        var path => path.Replace('/', ' ')
-    };
+    private string _density = "comfortable";
 
-    private async Task LogoutAsync()
+    protected override void OnInitialized()
     {
-        await Session.ClearAsync();
-        Navigation.NavigateTo("/login", true);
+        Nav.LocationChanged += OnLocationChanged;
     }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+        => StateHasChanged();
+
+    private void SetDensity(string d) => _density = d;
+
+    private string[] GetCrumbs()
+    {
+        var path = new Uri(Nav.Uri).LocalPath.TrimEnd('/');
+        return path switch
+        {
+            "" or "/"                   => ["Workspace", "Dashboard"],
+            "/products"                 => ["Workspace", "Products"],
+            "/products/create"          => ["Workspace", "Products", "New product"],
+            var p when p.StartsWith("/products/edit") => ["Workspace", "Products", "Edit product"],
+            "/catalog/categories"       => ["Catalog", "Categories"],
+            "/catalog/subcategories"    => ["Catalog", "Subcategories"],
+            "/catalog/tags"             => ["Catalog", "Tags"],
+            "/catalog/artists"          => ["Catalog", "Artists"],
+            "/settings"                 => ["Account", "Settings"],
+            _                           => ["Black Ink Paper"],
+        };
+    }
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
 }

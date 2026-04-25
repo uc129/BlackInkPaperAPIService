@@ -7,7 +7,6 @@ public record CreateProductRequest(
     int ArtistId,
     int CategoryId,
     int SubCategoryId,
-    int? ArtSpecId,
     ArtSpecificationsDto? ArtSpecs,
     bool IsUsingStandardVariants,
     bool IsFeatured,
@@ -26,7 +25,6 @@ public record UpdateProductRequest(
     string Slug,
     int CategoryId,
     int SubCategoryId,
-    int? ArtSpecId,
     ArtSpecificationsDto? ArtSpecs,
     bool IsUsingStandardVariants,
     bool IsFeatured,
@@ -45,7 +43,6 @@ public record ProductResponseDto(
     string Name,
     string Slug,
     int ArtistId,
-    int ArtSpecId,
     bool IsUsingStandardVariants,
     ArtSpecificationsDto? ArtSpecs,
     ProductTextContentDto Content,
@@ -166,46 +163,52 @@ public record UpdateProductImageDto(
 
 public record CreateProductVariantDto(
     string Label,
+    int FulfillmentType,
+    string Sku,
+    decimal? WeightGrams,
+    int? StockQuantity,
+    decimal? AbsolutePrice,
     List<CreateProductVariantOptionDto> Options);
 
 public record UpdateProductVariantDto(
     int? Id,
     string Label,
+    int FulfillmentType,
+    string Sku,
+    decimal? WeightGrams,
+    int? StockQuantity,
+    decimal? AbsolutePrice,
     List<UpdateProductVariantOptionDto> Options);
 
 public record ProductVariantDto(
     int Id,
     string Label,
+    int FulfillmentType,
+    string Sku,
+    decimal? WeightGrams,
+    int? StockQuantity,
+    decimal? AbsolutePrice,
     List<ProductVariantOptionDto> Options);
 
 public record CreateProductVariantOptionDto(
     string Value,
     decimal? PriceModifier,
     decimal? AbsolutePrice,
-    int? StockQuantity,
-    int FulfillmentType,
-    string Sku,
-    decimal? WeightGrams);
+    int? StockQuantity);
 
 public record UpdateProductVariantOptionDto(
     int? Id,
     string Value,
     decimal? PriceModifier,
     decimal? AbsolutePrice,
-    int? StockQuantity,
-    int FulfillmentType,
-    string Sku,
-    decimal? WeightGrams);
+    int? StockQuantity);
 
 public record ProductVariantOptionDto(
     int Id,
     string Value,
     decimal? PriceModifier,
     decimal? AbsolutePrice,
-    int? StockQuantity,
-    int FulfillmentType,
-    string Sku,
-    decimal? WeightGrams);
+    int? StockQuantity);
 
 public record ArtSpecificationsDto(
     DimensionsDto? PhysicalDimensions,

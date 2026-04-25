@@ -1,9 +1,10 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
+using Infrastructure.Persistence;
 
 namespace Infrastructure.Persistence.Data_Seed
 {
-    public static class SeedIdentity{
+    public static class SeedIdentity {
         public static async Task SeedRolesAsync(IServiceProvider serviceProvider)
         {
             var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
@@ -17,8 +18,7 @@ namespace Infrastructure.Persistence.Data_Seed
                 }
             }
         }
-
-        public static async Task SeedAdminUser(IServiceProvider serviceProvider)
+        public static async Task SeedAdminUserAsync(IServiceProvider serviceProvider)
         {
             var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
             var userManager = serviceProvider.GetRequiredService<UserManager<AppIdentityUser>>();
@@ -48,7 +48,37 @@ namespace Infrastructure.Persistence.Data_Seed
                 }
             }
         }
-    }
-    
+        public static async Task SeedArtistUserAsync(IServiceProvider serviceProvider)
+        {
+            var userManager = serviceProvider.GetRequiredService<UserManager<AppIdentityUser>>();
+            var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
+            if (!await roleManager.RoleExistsAsync("Artist"))
+                await roleManager.CreateAsync(new IdentityRole("Artist"));
+
+            var artistEmail = "artist@artist.com";
+            var artistUser = await userManager.FindByEmailAsync(artistEmail);
+
+            if (artistUser == null)
+            {
+                var user = new AppIdentityUser
+                {
+                    Id = "user-artist", // Fixed ID to match SQL seeds
+                    UserName = artistEmail,
+                    Email = artistEmail,
+                    FullName = "Aarav Kapoor",
+                    EmailConfirmed = true
+                };
+
+                var result = await userManager.CreateAsync(user, "Artist@123!");
+
+                if (result.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(user, "Artist");
+                }
+            }
+        }
+    }
 }
+
+

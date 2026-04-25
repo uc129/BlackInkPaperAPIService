@@ -15,7 +15,6 @@
         public ProductStats Stats { get; set; } = new();
         public ProductAudit Audit { get; set; } = new();
         // Domain Specifics
-        public int ArtSpecId { get; set; }
         public bool IsUsingStandardVariants { get; set; }
     }
     

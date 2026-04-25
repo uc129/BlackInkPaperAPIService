@@ -24,7 +24,7 @@ namespace BlackInkPaperAPIService.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterRequest request)
         {
-            string[] allowedRoles = { "Artist", "User" };
+            string[] allowedRoles = ["Artist", "User"];
 
             if (!allowedRoles.Contains(request.Role, StringComparer.OrdinalIgnoreCase))
             {

@@ -18,7 +18,6 @@ internal sealed class FakeProductRepository : IProductRepository
     public Func<int, Task<bool>> ArtistExistsHandler { get; set; } = _ => Task.FromResult(true);
     public Func<int, Task<bool>> CategoryExistsHandler { get; set; } = _ => Task.FromResult(true);
     public Func<int, Task<bool>> SubCategoryExistsHandler { get; set; } = _ => Task.FromResult(true);
-    public Func<int, Task<bool>> ArtSpecificationExistsHandler { get; set; } = _ => Task.FromResult(true);
 
     public ProductAggregate? AddedProduct { get; private set; }
     public ProductAggregate? UpdatedProduct { get; private set; }
@@ -70,5 +69,4 @@ internal sealed class FakeProductRepository : IProductRepository
     public Task<bool> ArtistExists(int artistId) => ArtistExistsHandler(artistId);
     public Task<bool> CategoryExists(int categoryId) => CategoryExistsHandler(categoryId);
     public Task<bool> SubCategoryExists(int subCategoryId) => SubCategoryExistsHandler(subCategoryId);
-    public Task<bool> ArtSpecificationExists(int artSpecId) => ArtSpecificationExistsHandler(artSpecId);
 }

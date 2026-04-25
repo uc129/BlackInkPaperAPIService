@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authorization;
 using Application.DTOs.Products;
 using BlackInkPaperAPIService.Controllers.Extensions;
 using Infrastructure.Contracts.Services;
@@ -27,7 +26,7 @@ public class ProductController(
     public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
     {
         var response = await productApplicationService.GetByIdAsync(id, cancellationToken);
-        if (response.Success && response.Data is not null && !response.Data.Taxonomy.IsAvailable)
+        if (response is { Success: true, Data.Taxonomy.IsAvailable: false })
         {
             logger.LogInformation("Public product lookup blocked for unavailable product id {ProductId}.", id);
             return NotFound(new ProblemDetails { Title = "Product not found.", Status = StatusCodes.Status404NotFound });
@@ -42,7 +41,7 @@ public class ProductController(
     public async Task<IActionResult> GetBySlug(string slug, CancellationToken cancellationToken)
     {
         var response = await productApplicationService.GetBySlugAsync(slug, cancellationToken);
-        if (response.Success && response.Data is not null && !response.Data.Taxonomy.IsAvailable)
+        if (response is { Success: true, Data.Taxonomy.IsAvailable: false })
         {
             logger.LogInformation("Public product lookup blocked for unavailable slug {ProductSlug}.", slug);
             return NotFound(new ProblemDetails { Title = "Product not found.", Status = StatusCodes.Status404NotFound });

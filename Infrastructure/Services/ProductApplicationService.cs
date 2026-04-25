@@ -229,11 +229,11 @@ public class ProductApplicationService(IProductRepository productRepository) : I
             return ServiceResponse<ProductResponseDto>.Fail($"SubCategory with id {request.SubCategoryId} does not exist.", statusCode: 400, errorCode: "validation_error");
         }
 
-        var artSpecificationValidation = await ValidateArtSpecification(request.ArtSpecId, request.ArtSpecs);
-        if (!artSpecificationValidation.Success)
-        {
-            return artSpecificationValidation;
-        }
+        // var artSpecificationValidation = await ValidateArtSpecification(request.ArtSpecs);
+        // if (!artSpecificationValidation.Success)
+        // {
+        //     return artSpecificationValidation;
+        // }
 
         if (await productRepository.ExistsBySlug(request.Slug.Trim()))
         {
@@ -279,11 +279,11 @@ public class ProductApplicationService(IProductRepository productRepository) : I
             return ServiceResponse<ProductResponseDto>.Fail($"SubCategory with id {request.SubCategoryId} does not exist.", statusCode: 400, errorCode: "validation_error");
         }
 
-        var artSpecificationValidation = await ValidateArtSpecification(request.ArtSpecId, request.ArtSpecs);
-        if (!artSpecificationValidation.Success)
-        {
-            return artSpecificationValidation;
-        }
+        // var artSpecificationValidation = await ValidateArtSpecification(request.ArtSpecs);
+        // if (!artSpecificationValidation.Success)
+        // {
+        //     return artSpecificationValidation;
+        // }
 
         if (await productRepository.ExistsBySlug(request.Slug.Trim(), id))
         {
@@ -345,16 +345,11 @@ public class ProductApplicationService(IProductRepository productRepository) : I
         return ServiceResponse<ProductResponseDto>.Ok(null!, "Validation passed.");
     }
 
-    private async Task<ServiceResponse<ProductResponseDto>> ValidateArtSpecification(int? artSpecId, ArtSpecificationsDto? artSpecs)
+    private async Task<ServiceResponse<ProductResponseDto>> ValidateArtSpecification(ArtSpecificationsDto? artSpecs)
     {
-        if (artSpecId is null && artSpecs is null)
+        if (artSpecs is null)
         {
-            return ServiceResponse<ProductResponseDto>.Fail("ArtSpecs or ArtSpecId is required.", statusCode: 400, errorCode: "validation_error");
-        }
-
-        if (artSpecs is null && artSpecId.HasValue && !await productRepository.ArtSpecificationExists(artSpecId.Value))
-        {
-            return ServiceResponse<ProductResponseDto>.Fail($"ArtSpecification with id {artSpecId.Value} does not exist.", statusCode: 400, errorCode: "validation_error");
+            return ServiceResponse<ProductResponseDto>.Fail("ArtSpecs is required.", statusCode: 400, errorCode: "validation_error");
         }
 
         return ServiceResponse<ProductResponseDto>.Ok(null!, "Validation passed.");

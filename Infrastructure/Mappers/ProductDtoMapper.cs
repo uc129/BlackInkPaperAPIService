@@ -34,8 +34,7 @@ public static class ProductDtoMapper
             CreatedBy = actor,
             UpdatedAt = nowUtc,
             UpdatedBy = actor,
-            ArtSpecId = request.ArtSpecId ?? 0,
-            ArtSpecs = ToArtSpecifications(request.ArtSpecs),
+            ArtSpecs = ToArtSpecifications(request.ArtSpecs)?? new ArtSpecifications(),
             IsUsingStandardVariants = request.IsUsingStandardVariants,
             Images = request.Images?.Select(ToImage).ToList() ?? [],
             Tags = request.TagIds?.Distinct().Select(id => new ProductTag { Id = id }).ToList() ?? [],
@@ -57,7 +56,6 @@ public static class ProductDtoMapper
         product.CurrencyCode = request.Pricing.CurrencyCode.Trim();
         product.CategoryId = request.CategoryId;
         product.SubCategoryId = request.SubCategoryId;
-        product.ArtSpecId = request.ArtSpecId ?? product.ArtSpecId;
         product.ArtSpecs = ToArtSpecifications(request.ArtSpecs) ?? product.ArtSpecs;
         product.IsUsingStandardVariants = request.IsUsingStandardVariants;
         product.IsFeatured = request.IsFeatured;
@@ -80,7 +78,6 @@ public static class ProductDtoMapper
             product.Name,
             product.Slug,
             product.ArtistId,
-            product.ArtSpecId,
             product.IsUsingStandardVariants,
             ToArtSpecificationsDto(product.ArtSpecs),
             new ProductTextContentDto(
@@ -124,15 +121,17 @@ public static class ProductDtoMapper
             product.Variants.Select(variant => new ProductVariantDto(
                 variant.Id,
                 variant.Label,
+                (int)variant.FulfillmentType,
+                variant.Sku,
+                variant.WeightGrams,
+                variant.StockQuantity,
+                variant.AbsolutePrice,
                 variant.Options.Select(option => new ProductVariantOptionDto(
                     option.Id,
                     option.Value,
                     option.PriceModifier,
                     option.AbsolutePrice,
-                    option.StockQuantity,
-                    (int)option.FulfillmentType,
-                    option.Sku,
-                    option.WeightGrams)).ToList())).ToList());
+                    option.StockQuantity)).ToList())).ToList());
     }
 
     public static ProductSummaryDto ToSummary(ProductAggregate product)
@@ -200,6 +199,11 @@ public static class ProductDtoMapper
         return new ProductVariantAggregate
         {
             Label = variant.Label.Trim(),
+            FulfillmentType = (ProductFulfillmentType)variant.FulfillmentType,
+            Sku = variant.Sku.Trim(),
+            WeightGrams = variant.WeightGrams,
+            StockQuantity = variant.StockQuantity,
+            AbsolutePrice = variant.AbsolutePrice,
             Options = variant.Options.Select(ToOption).ToList()
         };
     }
@@ -210,6 +214,11 @@ public static class ProductDtoMapper
         {
             Id = variant.Id ?? 0,
             Label = variant.Label.Trim(),
+            FulfillmentType = (ProductFulfillmentType)variant.FulfillmentType,
+            Sku = variant.Sku.Trim(),
+            WeightGrams = variant.WeightGrams,
+            StockQuantity = variant.StockQuantity,
+            AbsolutePrice = variant.AbsolutePrice,
             Options = variant.Options.Select(ToOption).ToList()
         };
     }
@@ -221,10 +230,7 @@ public static class ProductDtoMapper
             Value = option.Value.Trim(),
             PriceModifier = option.PriceModifier,
             AbsolutePrice = option.AbsolutePrice,
-            StockQuantity = option.StockQuantity,
-            FulfillmentType = (ProductFulfillmentType)option.FulfillmentType,
-            Sku = option.Sku.Trim(),
-            WeightGrams = option.WeightGrams
+            StockQuantity = option.StockQuantity
         };
     }
 
@@ -236,10 +242,7 @@ public static class ProductDtoMapper
             Value = option.Value.Trim(),
             PriceModifier = option.PriceModifier,
             AbsolutePrice = option.AbsolutePrice,
-            StockQuantity = option.StockQuantity,
-            FulfillmentType = (ProductFulfillmentType)option.FulfillmentType,
-            Sku = option.Sku.Trim(),
-            WeightGrams = option.WeightGrams
+            StockQuantity = option.StockQuantity
         };
     }
 
