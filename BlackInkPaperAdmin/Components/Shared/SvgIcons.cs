@@ -44,5 +44,7 @@ public static class SvgIcons
         ["lock"]        = """<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/>""",
         ["mail"]        = """<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 7l10 7 10-7"/>""",
         ["rupee"]       = """<path d="M6 3h12M6 8h12M14.5 3c0 5-3 8-7 8h2l7 10"/>""",
+        ["receipt"]     = """<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1z"/><path d="M8 7h8M8 11h8M8 15h4"/>""",
+        ["truck"]       = """<path d="M1 3h11v11H1z"/><path d="M12 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="17.5" r="2.5"/><circle cx="18.5" cy="17.5" r="2.5"/>""",
     };
 }

@@ -1,0 +1,291 @@
+@page "/orders/{Id:int}"
+@inject HttpClient Http
+@inject NavigationManager Nav
+<PageTitle>Order Detail — Black Ink Paper Admin</PageTitle>
+
+@if (_loading)
+{
+    <div class="page-header">
+        <div>
+            <div class="skel" style="height:22px;width:200px;margin-bottom:8px"></div>
+            <div class="skel" style="height:14px;width:120px"></div>
+        </div>
+    </div>
+    <div class="card" style="padding:24px">
+        @for (int i = 0; i < 3; i++)
+        {
+            <div class="skel" style="height:14px;width:@(60+i*15)%;margin-bottom:12px"></div>
+        }
+    </div>
+}
+else if (_error is not null)
+{
+    <div class="page-header">
+        <div><h1 class="h-page">Order not found</h1></div>
+        <div class="page-actions">
+            <a href="/orders" class="btn btn-secondary"><Icon Name="arrowDown" /> Back to orders</a>
+        </div>
+    </div>
+    <div class="card">
+        <div class="state">
+            <div class="state-art"><Icon Name="alert" Size="28" StrokeWidth="1.3" /></div>
+            <h3>Could not load order</h3>
+            <p>@_error</p>
+            <div class="state-actions">
+                <button class="btn btn-secondary" @onclick="Load"><Icon Name="refresh" /> Retry</button>
+            </div>
+        </div>
+    </div>
+}
+else if (_order is not null)
+{
+    <div class="page-header">
+        <div>
+            <h1 class="h-page">
+                <span class="mono">@_order.OrderNumber</span>
+                <span class="badge @StatusCss(_order.Status)" style="margin-left:10px;vertical-align:middle">
+                    <span class="dot"></span> @_order.Status
+                </span>
+            </h1>
+            <p class="lead">Placed @_order.CreatedAt.ToString("dd MMM yyyy HH:mm") UTC</p>
+        </div>
+        <div class="page-actions">
+            <a href="/orders" class="btn btn-secondary">← Back</a>
+        </div>
+    </div>
+
+    <div class="detail-grid">
+        <!-- Customer + Shipping -->
+        <div class="card" style="padding:20px 24px">
+            <h3 class="h-section" style="margin-bottom:16px">Customer & Shipping</h3>
+            <div class="detail-row"><span class="detail-lbl">Name</span><span>@_order.ShippingAddress.FullName</span></div>
+            <div class="detail-row"><span class="detail-lbl">Phone</span><span>@_order.ShippingAddress.PhoneNumber</span></div>
+            <div class="detail-row"><span class="detail-lbl">Address</span>
+                <span>
+                    @_order.ShippingAddress.AddressLine1
+                    @if (!string.IsNullOrEmpty(_order.ShippingAddress.AddressLine2)) { <text>, @_order.ShippingAddress.AddressLine2</text> }
+                    <br />@_order.ShippingAddress.City, @_order.ShippingAddress.State @_order.ShippingAddress.PostalCode
+                    <br />@_order.ShippingAddress.CountryCode
+                </span>
+            </div>
+            @if (!string.IsNullOrEmpty(_order.Notes))
+            {
+                <div class="detail-row"><span class="detail-lbl">Notes</span><span>@_order.Notes</span></div>
+            }
+        </div>
+
+        <!-- Payment -->
+        <div class="card" style="padding:20px 24px">
+            <h3 class="h-section" style="margin-bottom:16px">Payment</h3>
+            <div class="detail-row"><span class="detail-lbl">Status</span>
+                <span class="badge @(_order.PaymentStatus == "Captured" ? "live" : "draft")">
+                    <span class="dot"></span> @_order.PaymentStatus
+                </span>
+            </div>
+            @if (!string.IsNullOrEmpty(_order.PaymentProvider))
+            {
+                <div class="detail-row"><span class="detail-lbl">Provider</span><span>@_order.PaymentProvider</span></div>
+            }
+            @if (!string.IsNullOrEmpty(_order.PaymentMethod))
+            {
+                <div class="detail-row"><span class="detail-lbl">Method</span><span>@_order.PaymentMethod</span></div>
+            }
+            @if (_order.PaidAt.HasValue)
+            {
+                <div class="detail-row"><span class="detail-lbl">Paid at</span><span>@_order.PaidAt.Value.ToString("dd MMM yyyy HH:mm") UTC</span></div>
+            }
+            @if (!string.IsNullOrEmpty(_order.RazorpayOrderId))
+            {
+                <div class="detail-row"><span class="detail-lbl">Rzp order</span><span class="mono" style="font-size:12px">@_order.RazorpayOrderId</span></div>
+            }
+            @if (!string.IsNullOrEmpty(_order.RazorpayPaymentId))
+            {
+                <div class="detail-row"><span class="detail-lbl">Rzp payment</span><span class="mono" style="font-size:12px">@_order.RazorpayPaymentId</span></div>
+            }
+        </div>
+    </div>
+
+    <!-- Status update -->
+    @if (NextStatuses.Length > 0)
+    {
+        <div class="card" style="padding:20px 24px;margin-bottom:16px">
+            <h3 class="h-section" style="margin-bottom:14px">Update Status</h3>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                @foreach (var s in NextStatuses)
+                {
+                    var status = s;
+                    <button class="btn btn-secondary" disabled="@_updating" @onclick="() => UpdateStatus(status)">
+                        @if (_updating && _pendingStatus == s)
+                        {
+                            <text>Updating…</text>
+                        }
+                        else
+                        {
+                            <text>Mark as @s</text>
+                        }
+                    </button>
+                }
+            </div>
+            @if (_updateError is not null)
+            {
+                <div style="margin-top:10px;font-size:13px;color:var(--danger);display:flex;gap:6px;align-items:center">
+                    <Icon Name="alert" Size="13" /> @_updateError
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Line items -->
+    <div class="card" style="padding:0">
+        <div style="padding:20px 24px 12px">
+            <h3 class="h-section">Items (@_order.Items.Count)</h3>
+        </div>
+        <div class="list-header" style="grid-template-columns:2fr 1fr 1fr 1fr">
+            <span>Product</span><span>Unit price</span><span>Qty</span><span>Line total</span>
+        </div>
+        @foreach (var item in _order.Items)
+        {
+            <div class="order-item-row">
+                <div>
+                    <div style="font-weight:600;font-size:13.5px">@item.Name</div>
+                    @if (item.SelectedVariants.Count > 0)
+                    {
+                        <div style="font-size:12px;color:var(--ink-500)">
+                            @string.Join(", ", item.SelectedVariants.Select(v => $"{v.VariantLabel}: {v.OptionValue}"))
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(item.Sku))
+                    {
+                        <div class="mono" style="font-size:11px;color:var(--ink-400)">@item.Sku</div>
+                    }
+                </div>
+                <div>@FmtINR(item.UnitPrice)</div>
+                <div>@item.Quantity</div>
+                <div style="font-weight:600">@FmtINR(item.LineTotal)</div>
+            </div>
+        }
+        <div style="padding:16px 24px;border-top:1px solid var(--line-soft)">
+            <div class="pricing-row"><span>Subtotal</span><span>@FmtINR(_order.Subtotal)</span></div>
+            <div class="pricing-row"><span>Shipping (@(_order.ShippingLabel ?? _order.ShippingMethod ?? "—"))</span><span>@FmtINR(_order.ShippingAmount)</span></div>
+            <div class="pricing-row"><span>Tax (@(_order.TaxLabel ?? "GST"))</span><span>@FmtINR(_order.TaxAmount)</span></div>
+            <div class="pricing-row" style="font-weight:700;font-size:15px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line-soft)">
+                <span>Total</span><span>@FmtINR(_order.TotalAmount)</span>
+            </div>
+        </div>
+    </div>
+}
+
+<Toast Message="@_toast" />
+
+<style>
+    .detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+    .detail-row {
+        display: grid;
+        grid-template-columns: 100px 1fr;
+        gap: 12px;
+        padding: 7px 0;
+        border-bottom: 1px solid var(--line-soft);
+        font-size: 13.5px;
+    }
+    .detail-row:last-child { border-bottom: 0; }
+    .detail-lbl { color: var(--ink-400); font-size: 12.5px; }
+    .order-item-row {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr 1fr;
+        align-items: center;
+        gap: 16px;
+        padding: 12px 24px;
+        border-bottom: 1px solid var(--line-soft);
+        font-size: 13.5px;
+    }
+    .order-item-row:last-child { border-bottom: 0; }
+    .pricing-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13.5px;
+        padding: 3px 0;
+        color: var(--ink-600);
+    }
+</style>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private OrderDto? _order;
+    private string[] NextStatuses => _order is null ? [] : AllowedNextStatuses(_order.Status);
+    private bool _loading = true;
+    private string? _error;
+    private bool _updating;
+    private string? _pendingStatus;
+    private string? _updateError;
+    private string? _toast;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        _loading = true; _error = null;
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<ServiceResponse<OrderDto>>($"api/admin/orders/{Id}");
+            if (resp?.Success == true && resp.Data is not null)
+                _order = resp.Data;
+            else
+                _error = resp?.Message ?? "Unknown error";
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        _loading = false;
+    }
+
+    private async Task UpdateStatus(string newStatus)
+    {
+        _updating = true; _updateError = null; _pendingStatus = newStatus;
+        try
+        {
+            var opts = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var resp = await Http.PatchAsJsonAsync($"api/admin/orders/{Id}/status", new { status = newStatus });
+            var result = await resp.Content.ReadFromJsonAsync<ServiceResponse<OrderDto>>(opts);
+            if (result?.Success == true && result.Data is not null)
+            {
+                _order = result.Data;
+                ShowToast($"Order marked as {newStatus}.");
+            }
+            else
+            {
+                _updateError = result?.Message ?? "Update failed.";
+            }
+        }
+        catch (Exception ex) { _updateError = ex.Message; }
+        _updating = false; _pendingStatus = null;
+    }
+
+    private static string[] AllowedNextStatuses(string current) => current switch
+    {
+        "PendingPayment" => ["Confirmed", "Cancelled"],
+        "Paid"           => ["Confirmed", "Cancelled"],
+        "Confirmed"      => ["Shipped"],
+        "Shipped"        => ["Delivered"],
+        _                => []
+    };
+
+    private static string StatusCss(string status) => status switch
+    {
+        "Delivered" or "Confirmed" => "live",
+        "Shipped"   => "featured",
+        _           => "draft"
+    };
+
+    private async void ShowToast(string msg)
+    {
+        _toast = msg; StateHasChanged();
+        await Task.Delay(3000);
+        _toast = null; StateHasChanged();
+    }
+
+    private static string FmtINR(decimal amount) => CurrencyHelper.FmtINR(amount);
+}

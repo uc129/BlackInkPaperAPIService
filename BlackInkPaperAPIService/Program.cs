@@ -58,6 +58,8 @@ builder.Services.AddScoped<ICheckoutApplicationService, CheckoutApplicationServi
 builder.Services.AddScoped<ICheckoutPricingService, CheckoutPricingService>();
 builder.Services.AddScoped<IProductApplicationService, ProductApplicationService>();
 builder.Services.AddScoped<IProductReferenceDataService, ProductReferenceDataService>();
+builder.Services.AddScoped<IAdminOrderService, AdminOrderService>();
+builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 builder.Services.AddHttpClient<IRazorpayGateway, RazorpayGateway>((serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<RazorpayOptions>>().Value;

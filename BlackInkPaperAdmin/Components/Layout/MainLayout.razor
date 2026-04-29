@@ -104,6 +104,9 @@
             "/catalog/subcategories"    => ["Catalog", "Subcategories"],
             "/catalog/tags"             => ["Catalog", "Tags"],
             "/catalog/artists"          => ["Catalog", "Artists"],
+            "/orders"                   => ["Workspace", "Orders"],
+            var p when p.StartsWith("/orders/") => ["Workspace", "Orders", "Order detail"],
+            "/admin/users"              => ["Account", "Users"],
             "/settings"                 => ["Account", "Settings"],
             _                           => ["Black Ink Paper"],
         };

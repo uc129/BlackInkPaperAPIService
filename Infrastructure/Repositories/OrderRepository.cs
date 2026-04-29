@@ -498,6 +498,100 @@ public class OrderRepository(IDapperContext dapperContext) : IOrderRepository
         return orders;
     }
 
+    public async Task<(IEnumerable<OrderAggregate> Orders, int TotalCount)> GetAllAsync(
+        int page, int pageSize, string? status, string? userId,
+        DateTime? dateFrom, DateTime? dateTo, CancellationToken ct = default)
+    {
+        var conditions = new List<string>();
+        var parameters = new DynamicParameters();
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            conditions.Add("o.Status = @Status");
+            parameters.Add("Status", status);
+        }
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            conditions.Add("o.UserId = @UserId");
+            parameters.Add("UserId", userId);
+        }
+        if (dateFrom.HasValue)
+        {
+            conditions.Add("o.CreatedAt >= @DateFrom");
+            parameters.Add("DateFrom", dateFrom.Value);
+        }
+        if (dateTo.HasValue)
+        {
+            conditions.Add("o.CreatedAt <= @DateTo");
+            parameters.Add("DateTo", dateTo.Value);
+        }
+
+        var whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
+        var offset = (page - 1) * pageSize;
+        parameters.Add("Limit", pageSize);
+        parameters.Add("Offset", offset);
+
+        var sql = $"""
+            SELECT COUNT(*) FROM Orders o {whereClause};
+
+            SELECT
+                o.Id,
+                o.OrderNumber,
+                o.UserId,
+                o.Status,
+                o.PaymentStatus,
+                o.CurrencyCode,
+                o.TotalAmount,
+                o.PaidAt,
+                o.CreatedAt,
+                (SELECT COUNT(*) FROM OrderItems oi WHERE oi.OrderId = o.Id) AS ItemCount,
+                COALESCE(u."FullName", '') AS CustomerName,
+                COALESCE(u."Email", '') AS CustomerEmail
+            FROM Orders o
+            LEFT JOIN "Users" u ON u."Id" = o.UserId
+            {whereClause}
+            ORDER BY o.CreatedAt DESC
+            LIMIT @Limit OFFSET @Offset;
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        await using var multi = await connection.QueryMultipleAsync(sql, parameters);
+
+        var totalCount = await multi.ReadSingleAsync<int>();
+        var summaryRows = (await multi.ReadAsync<OrderSummaryRow>()).ToList();
+
+        var orders = summaryRows.Select(row => new OrderAggregate
+        {
+            Id = row.Id,
+            OrderNumber = row.OrderNumber,
+            UserId = row.UserId,
+            Status = row.Status,
+            PaymentStatus = row.PaymentStatus,
+            CurrencyCode = row.CurrencyCode,
+            TotalAmount = row.TotalAmount,
+            PaidAt = row.PaidAt,
+            CreatedAt = row.CreatedAt,
+            CustomerName = row.CustomerName,
+            CustomerEmail = row.CustomerEmail,
+            ItemCount = row.ItemCount
+        });
+
+        return (orders, totalCount);
+    }
+
+    public async Task<bool> UpdateStatusAsync(int orderId, string status, DateTime updatedAt, CancellationToken ct = default)
+    {
+        const string sql = """
+            UPDATE Orders
+            SET Status = @Status, UpdatedAt = @UpdatedAt
+            WHERE Id = @OrderId;
+            """;
+
+        using var connection = dapperContext.CreateConnection();
+        var rows = await connection.ExecuteAsync(sql, new { OrderId = orderId, Status = status, UpdatedAt = updatedAt });
+        return rows > 0;
+    }
+
     private static async Task<OrderAggregate?> GetOrderForUpdate(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, int orderId)
     {
         const string sql = """
@@ -717,6 +811,22 @@ public class OrderRepository(IDapperContext dapperContext) : IOrderRepository
                 ? fulfillmentType
                 : null
         };
+    }
+
+    private sealed class OrderSummaryRow
+    {
+        public int Id { get; init; }
+        public string OrderNumber { get; init; } = string.Empty;
+        public string UserId { get; init; } = string.Empty;
+        public string Status { get; init; } = string.Empty;
+        public string PaymentStatus { get; init; } = string.Empty;
+        public string CurrencyCode { get; init; } = "INR";
+        public decimal TotalAmount { get; init; }
+        public DateTime? PaidAt { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public int ItemCount { get; init; }
+        public string CustomerName { get; init; } = string.Empty;
+        public string CustomerEmail { get; init; } = string.Empty;
     }
 
     private sealed class OrderWithAddressRow

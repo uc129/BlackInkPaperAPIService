@@ -1,0 +1,199 @@
+@page "/orders"
+@inject HttpClient Http
+@inject NavigationManager Nav
+<PageTitle>Orders — Black Ink Paper Admin</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1 class="h-page">Orders</h1>
+        <p class="lead">Review and manage customer orders.</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="toolbar">
+        <div class="chips">
+            <button class="chip @(_filter == "all" ? "on" : "")" @onclick='() => SetFilter("all")'>
+                All <span class="count">@_all.Count</span>
+            </button>
+            @foreach (var (label, key) in _statusChips)
+            {
+                var k = key;
+                <button class="chip @(_filter == k ? "on" : "")" @onclick="() => SetFilter(k)">
+                    @label <span class="count">@_all.Count(o => o.Status == k)</span>
+                </button>
+            }
+        </div>
+        <span class="spacer"></span>
+        <div class="field" style="max-width:280px">
+            <Icon Name="search" />
+            <input placeholder="Search by order number…" value="@_query" @oninput="OnSearch" />
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="list-header" style="grid-template-columns:1.2fr 1.5fr 0.6fr 0.8fr 0.8fr 0.8fr auto">
+            <span>Order #</span><span>Customer</span><span>Items</span><span>Total</span><span>Status</span><span>Date</span><span></span>
+        </div>
+        @for (int i = 0; i < 6; i++)
+        {
+            <div class="order-row">
+                <div class="skel" style="height:13px;width:70%"></div>
+                <div class="skel" style="height:12px;width:80%"></div>
+                <div class="skel" style="height:12px;width:30px"></div>
+                <div class="skel" style="height:13px;width:60px"></div>
+                <div class="skel" style="height:20px;width:70px;border-radius:999px"></div>
+                <div class="skel" style="height:12px;width:70%"></div>
+                <div></div>
+            </div>
+        }
+    }
+    else if (_error is not null)
+    {
+        <div class="state">
+            <div class="state-art"><Icon Name="alert" Size="28" StrokeWidth="1.3" /></div>
+            <h3>Could not load orders</h3>
+            <p>@_error</p>
+            <div class="state-actions">
+                <button class="btn btn-secondary" @onclick="Load"><Icon Name="refresh" /> Retry</button>
+            </div>
+        </div>
+    }
+    else if (_filtered.Count == 0 && _all.Count > 0)
+    {
+        <div class="state">
+            <div class="state-art"><Icon Name="search" Size="28" StrokeWidth="1.3" /></div>
+            <h3>No matches</h3>
+            <p>Try a different search term or filter.</p>
+            <div class="state-actions">
+                <button class="btn btn-secondary" @onclick="ClearFilter">Clear filter</button>
+            </div>
+        </div>
+    }
+    else if (_all.Count == 0)
+    {
+        <div class="state">
+            <div class="state-art"><Icon Name="receipt" Size="28" StrokeWidth="1.3" /></div>
+            <h3>No orders yet</h3>
+            <p>Orders placed by customers will appear here.</p>
+        </div>
+    }
+    else
+    {
+        <div class="list-header" style="grid-template-columns:1.2fr 1.5fr 0.6fr 0.8fr 0.8fr 0.8fr auto">
+            <span>Order #</span>
+            <span>Customer</span>
+            <span>Items</span>
+            <span>Total</span>
+            <span>Status</span>
+            <span>Date</span>
+            <span></span>
+        </div>
+        @foreach (var o in _filtered)
+        {
+            var oid = o.Id;
+            <div class="order-row" @onclick="() => GoOrder(oid)" style="cursor:pointer">
+                <div class="mono" style="font-size:13px;font-weight:600">@o.OrderNumber</div>
+                <div>
+                    <div style="font-size:13.5px;font-weight:500">@(string.IsNullOrEmpty(o.CustomerName) ? "—" : o.CustomerName)</div>
+                    <div style="font-size:12px;color:var(--ink-500)">@o.CustomerEmail</div>
+                </div>
+                <div style="font-size:13px;color:var(--ink-500)">@o.ItemCount</div>
+                <div style="font-size:13.5px;font-weight:500">@FmtINR(o.TotalAmount)</div>
+                <div><span class="badge @StatusCss(o.Status)"><span class="dot"></span> @o.Status</span></div>
+                <div style="font-size:12.5px;color:var(--ink-500)">@o.CreatedAt.ToString("dd MMM yyyy")</div>
+                <div class="row-actions">
+                    <button class="btn btn-icon btn-ghost" title="View" @onclick:stopPropagation @onclick="() => GoOrder(oid)">
+                        <Icon Name="eye" />
+                    </button>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<style>
+    .order-row {
+        display: grid;
+        grid-template-columns: 1.2fr 1.5fr 0.6fr 0.8fr 0.8fr 0.8fr auto;
+        align-items: center;
+        gap: 16px;
+        padding: 11px 18px;
+        border-bottom: 1px solid var(--line-soft);
+    }
+    .order-row:last-child { border-bottom: 0; }
+    .order-row:hover { background: var(--paper-100); }
+    .order-row .row-actions { display: flex; gap: 2px; opacity: 0.6; transition: opacity 0.12s; }
+    .order-row:hover .row-actions { opacity: 1; }
+</style>
+
+@code {
+    private static readonly (string Label, string Key)[] _statusChips =
+    [
+        ("Pending", "PendingPayment"),
+        ("Paid", "Paid"),
+        ("Confirmed", "Confirmed"),
+        ("Shipped", "Shipped"),
+        ("Delivered", "Delivered"),
+        ("Cancelled", "Cancelled"),
+    ];
+
+    private List<OrderSummaryDto> _all = [];
+    private List<OrderSummaryDto> _filtered = [];
+    private string _filter = "all";
+    private string _query = "";
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private void GoOrder(int id) => Nav.NavigateTo("/orders/" + id);
+
+    private async Task Load()
+    {
+        _loading = true; _error = null;
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<ServiceResponse<PagedResultDto<OrderSummaryDto>>>(
+                "api/admin/orders?Page=1&PageSize=200");
+            if (resp?.Success == true && resp.Data is not null)
+                _all = resp.Data.Items.ToList();
+            else
+                _error = resp?.Message ?? "Unknown error";
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        ApplyFilter();
+        _loading = false;
+    }
+
+    private void SetFilter(string f) { _filter = f; ApplyFilter(); }
+    private void ClearFilter() { _filter = "all"; _query = ""; ApplyFilter(); }
+    private void OnSearch(ChangeEventArgs e) { _query = e.Value?.ToString() ?? ""; ApplyFilter(); }
+
+    private void ApplyFilter()
+    {
+        var list = _all.AsEnumerable();
+        if (_filter != "all") list = list.Where(o => o.Status == _filter);
+        if (!string.IsNullOrWhiteSpace(_query))
+        {
+            var q = _query.Trim().ToLowerInvariant();
+            list = list.Where(o => o.OrderNumber.ToLowerInvariant().Contains(q) ||
+                                   o.CustomerEmail.ToLowerInvariant().Contains(q) ||
+                                   o.CustomerName.ToLowerInvariant().Contains(q));
+        }
+        _filtered = list.ToList();
+    }
+
+    private static string StatusCss(string status) => status switch
+    {
+        "Delivered"     => "live",
+        "Shipped"       => "featured",
+        "Confirmed"     => "live",
+        "PendingPayment"=> "draft",
+        "Cancelled"     => "draft",
+        _               => ""
+    };
+
+    private static string FmtINR(decimal amount) => CurrencyHelper.FmtINR(amount);
+}

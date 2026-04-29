@@ -1,0 +1,225 @@
+@page "/admin/users"
+@inject HttpClient Http
+<PageTitle>Users — Black Ink Paper Admin</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1 class="h-page">Users</h1>
+        <p class="lead">Manage accounts and roles.</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="toolbar">
+        <div class="chips">
+            <button class="chip @(_roleFilter == "" ? "on" : "")" @onclick='() => SetRoleFilter("")'>
+                All <span class="count">@_all.Count</span>
+            </button>
+            @foreach (var role in _roles)
+            {
+                var r = role;
+                <button class="chip @(_roleFilter == r ? "on" : "")" @onclick="() => SetRoleFilter(r)">
+                    @r <span class="count">@_all.Count(u => u.Roles.Contains(r))</span>
+                </button>
+            }
+        </div>
+        <span class="spacer"></span>
+        <div class="field" style="max-width:280px">
+            <Icon Name="search" />
+            <input placeholder="Search by name or email…" value="@_query" @oninput="OnSearch" />
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="list-header" style="grid-template-columns:1.5fr 1.5fr 1fr auto">
+            <span>Name</span><span>Email</span><span>Roles</span><span></span>
+        </div>
+        @for (int i = 0; i < 6; i++)
+        {
+            <div class="user-row">
+                <div class="skel" style="height:13px;width:60%"></div>
+                <div class="skel" style="height:12px;width:75%"></div>
+                <div class="skel" style="height:20px;width:60px;border-radius:999px"></div>
+                <div></div>
+            </div>
+        }
+    }
+    else if (_error is not null)
+    {
+        <div class="state">
+            <div class="state-art"><Icon Name="alert" Size="28" StrokeWidth="1.3" /></div>
+            <h3>Could not load users</h3>
+            <p>@_error</p>
+            <div class="state-actions">
+                <button class="btn btn-secondary" @onclick="Load"><Icon Name="refresh" /> Retry</button>
+            </div>
+        </div>
+    }
+    else if (_filtered.Count == 0 && _all.Count > 0)
+    {
+        <div class="state">
+            <div class="state-art"><Icon Name="search" Size="28" StrokeWidth="1.3" /></div>
+            <h3>No matches</h3>
+            <p>Try a different search term or filter.</p>
+        </div>
+    }
+    else if (_all.Count == 0)
+    {
+        <div class="state">
+            <div class="state-art"><Icon Name="users" Size="28" StrokeWidth="1.3" /></div>
+            <h3>No users yet</h3>
+        </div>
+    }
+    else
+    {
+        <div class="list-header" style="grid-template-columns:1.5fr 1.5fr 1fr auto">
+            <span>Name</span>
+            <span>Email</span>
+            <span>Roles</span>
+            <span></span>
+        </div>
+        @foreach (var u in _filtered)
+        {
+            var uid = u.Id;
+            <div class="user-row">
+                <div style="font-weight:600;font-size:13.5px">@(string.IsNullOrEmpty(u.FullName) ? "—" : u.FullName)</div>
+                <div style="font-size:13px;color:var(--ink-500)">@u.Email</div>
+                <div style="display:flex;gap:5px;flex-wrap:wrap">
+                    @foreach (var role in u.Roles)
+                    {
+                        <span class="badge @RoleCss(role)">@role</span>
+                    }
+                </div>
+                <div class="row-actions">
+                    @{
+                        var isArtist = u.Roles.Contains("Artist");
+                        var isAdmin = u.Roles.Contains("Admin");
+                    }
+                    @if (!isAdmin)
+                    {
+                        @if (isArtist)
+                        {
+                            <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px" title="Remove Artist role"
+                                    disabled="@(_roleSaving == uid)"
+                                    @onclick="() => ToggleRole(uid, u.Roles.ToList(), ArtistRole, remove: true)">
+                                Remove Artist
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px" title="Grant Artist role"
+                                    disabled="@(_roleSaving == uid)"
+                                    @onclick="() => ToggleRole(uid, u.Roles.ToList(), ArtistRole, remove: false)">
+                                + Artist
+                            </button>
+                        }
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<Toast Message="@_toast" />
+
+<style>
+    .user-row {
+        display: grid;
+        grid-template-columns: 1.5fr 1.5fr 1fr auto;
+        align-items: center;
+        gap: 16px;
+        padding: 11px 18px;
+        border-bottom: 1px solid var(--line-soft);
+    }
+    .user-row:last-child { border-bottom: 0; }
+    .user-row:hover { background: var(--paper-100); }
+    .user-row .row-actions { display: flex; gap: 6px; opacity: 0.6; transition: opacity 0.12s; }
+    .user-row:hover .row-actions { opacity: 1; }
+</style>
+
+@code {
+    private const string ArtistRole = "Artist";
+    private static readonly string[] _roles = ["Admin", "Artist", "User"];
+
+    private List<UserSummaryDto> _all = [];
+    private List<UserSummaryDto> _filtered = [];
+    private string _roleFilter = "";
+    private string _query = "";
+    private bool _loading = true;
+    private string? _error;
+    private string? _roleSaving;
+    private string? _toast;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        _loading = true; _error = null;
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<ServiceResponse<PagedResultDto<UserSummaryDto>>>(
+                "api/admin/users?Page=1&PageSize=200");
+            if (resp?.Success == true && resp.Data is not null)
+                _all = resp.Data.Items.ToList();
+            else
+                _error = resp?.Message ?? "Unknown error";
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        ApplyFilter();
+        _loading = false;
+    }
+
+    private void SetRoleFilter(string r) { _roleFilter = r; ApplyFilter(); }
+    private void OnSearch(ChangeEventArgs e) { _query = e.Value?.ToString() ?? ""; ApplyFilter(); }
+
+    private void ApplyFilter()
+    {
+        var list = _all.AsEnumerable();
+        if (!string.IsNullOrEmpty(_roleFilter)) list = list.Where(u => u.Roles.Contains(_roleFilter));
+        if (!string.IsNullOrWhiteSpace(_query))
+        {
+            var q = _query.Trim().ToLowerInvariant();
+            list = list.Where(u =>
+                u.Email.ToLowerInvariant().Contains(q) ||
+                u.FullName.ToLowerInvariant().Contains(q));
+        }
+        _filtered = list.ToList();
+    }
+
+    private async Task ToggleRole(string userId, List<string> currentRoles, string role, bool remove)
+    {
+        _roleSaving = userId;
+        try
+        {
+            List<string> newRoles = remove
+                ? currentRoles.Where(r => r != role).ToList()
+                : [.. currentRoles, role];
+
+            var opts = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var resp = await Http.PatchAsJsonAsync($"api/admin/users/{userId}/roles", new { roles = newRoles });
+            var result = await resp.Content.ReadFromJsonAsync<ServiceResponse<UserSummaryDto>>(opts);
+            if (result?.Success == true)
+            {
+                await Load();
+                ShowToast(remove ? $"{role} role removed." : $"{role} role granted.");
+            }
+        }
+        catch { /* swallow — no user-facing error needed for inline toggle */ }
+        _roleSaving = null;
+    }
+
+    private static string RoleCss(string role) => role switch
+    {
+        "Admin"  => "live",
+        "Artist" => "featured",
+        _        => "draft"
+    };
+
+    private async void ShowToast(string msg)
+    {
+        _toast = msg; StateHasChanged();
+        await Task.Delay(3000);
+        _toast = null; StateHasChanged();
+    }
+}

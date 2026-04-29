@@ -31,6 +31,10 @@ public class OrderAggregate
     public DateTime UpdatedAt { get; set; }
     public ShippingAddressAggregate ShippingAddress { get; set; } = new();
     public List<OrderItemAggregate> Items { get; set; } = [];
+    // populated only in admin listing queries
+    public string? CustomerName { get; set; }
+    public string? CustomerEmail { get; set; }
+    public int? ItemCount { get; set; }
 }
 
 public class OrderItemAggregate
