@@ -64,9 +64,8 @@ public class OrderRepository(IDapperContext dapperContext) : IOrderRepository
                 @Notes,
                 @CreatedAt,
                 @UpdatedAt
-            );
-
-            SELECT CAST(SCOPE_IDENTITY() AS int);
+            )
+            RETURNING Id;
             """;
 
         const string insertOrderItemSql = """
@@ -101,9 +100,8 @@ public class OrderRepository(IDapperContext dapperContext) : IOrderRepository
                 @LineTotal,
                 @Sku,
                 @FulfillmentType
-            );
-
-            SELECT CAST(SCOPE_IDENTITY() AS int);
+            )
+            RETURNING Id;
             """;
 
         const string insertSelectedVariantSql = """

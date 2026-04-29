@@ -1,0 +1,8 @@
+@if (Message is not null)
+{
+    <div class="toast"><Icon Name="check" CssClass="ico-ok" /> @Message</div>
+}
+
+@code {
+    [Parameter] public string? Message { get; set; }
+}

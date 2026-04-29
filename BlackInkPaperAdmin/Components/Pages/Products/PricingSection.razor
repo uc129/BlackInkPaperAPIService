@@ -1,0 +1,54 @@
+<section id="section-pricing" class="section">
+    <div class="section-head">
+        <div>
+            <h3 class="h-section">Pricing</h3>
+            <div class="meta">All prices in INR. Strike-through MRP is optional.</div>
+        </div>
+    </div>
+    <div class="section-body">
+        <div class="grid-3">
+            <div class="field-block">
+                <label class="lbl">MRP (base price)</label>
+                <div class="field">
+                    <span class="muted mono">₹</span>
+                    <input class="tabular" type="number" min="0" @bind="Vm.BasePrice" @bind:after="NotifyChanged" />
+                </div>
+            </div>
+            <div class="field-block">
+                <label class="lbl">Selling price <span style="color:var(--danger)">*</span></label>
+                <div class="field">
+                    <span class="muted mono">₹</span>
+                    <input class="tabular" type="number" min="0" @bind="Vm.FinalPrice" @bind:after="NotifyChanged" />
+                </div>
+            </div>
+            <div class="field-block">
+                <label class="lbl">Currency</label>
+                <select class="input" @bind="Vm.Currency" @bind:after="NotifyChanged">
+                    <option value="INR">INR · ₹ Indian Rupee</option>
+                    <option value="USD">USD · $ US Dollar</option>
+                    <option value="GBP">GBP · £ British Pound</option>
+                </select>
+            </div>
+        </div>
+        @if (Vm.FinalPrice > 0)
+        {
+            <div class="row mt-3" style="padding:10px 14px;background:var(--paper-100);border-radius:8px;font-size:13px;gap:8px">
+                <Icon Name="info" Size="14" />
+                <span>
+                    Customers will see <strong>@CurrencyHelper.FmtINR(Vm.FinalPrice)</strong>@if (Vm.BasePrice > Vm.FinalPrice)
+                    {
+                        <text> — a saving of <strong>@CurrencyHelper.FmtINR(Vm.BasePrice - Vm.FinalPrice)</strong>
+                        (@Math.Round((1m - Vm.FinalPrice / Vm.BasePrice) * 100)% off)</text>
+                    }<text>.</text>
+                </span>
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public ProductFormViewModel Vm { get; set; } = null!;
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private Task NotifyChanged() => OnChanged.InvokeAsync();
+}

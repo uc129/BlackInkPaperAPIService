@@ -1,0 +1,87 @@
+<section id="section-specs" class="section">
+    <div class="section-head">
+        <div>
+            <h3 class="h-section">Art specifications</h3>
+            <div class="meta">Physical and digital details — leave blank if not applicable.</div>
+        </div>
+    </div>
+    <div class="section-body">
+        <div class="grid-2">
+            <div class="field-block">
+                <label class="lbl">Material</label>
+                <div class="field">
+                    <input @bind="Vm.Material" @bind:after="NotifyChanged" placeholder="e.g. Archival cotton paper, 200gsm" />
+                </div>
+            </div>
+            <div class="field-block">
+                <label class="lbl">File format</label>
+                <div class="field">
+                    <input @bind="Vm.FileFormat" @bind:after="NotifyChanged" placeholder="e.g. Giclée print, PDF" />
+                </div>
+            </div>
+        </div>
+        <div class="grid-2 mt-3">
+            <div class="field-block">
+                <label class="lbl">Pixel dimensions</label>
+                <div class="field">
+                    <Icon Name="ruler" />
+                    <input class="mono" @bind="Vm.PixelDims" @bind:after="NotifyChanged" placeholder="e.g. 4096×3072 px" />
+                </div>
+                <div class="hint">For digital downloads.</div>
+            </div>
+            <div class="field-block">
+                <label class="lbl">Weight (grams)</label>
+                <div class="field">
+                    <input type="number" class="tabular" @bind="Vm.WeightGrams" @bind:after="NotifyChanged" placeholder="e.g. 180" />
+                </div>
+            </div>
+        </div>
+        <div class="grid-3 mt-3">
+            <div class="field-block">
+                <label class="lbl">Width</label>
+                <div class="field">
+                    <input type="number" class="tabular" @bind="Vm.DimW" @bind:after="NotifyChanged" placeholder="0" />
+                </div>
+            </div>
+            <div class="field-block">
+                <label class="lbl">Height</label>
+                <div class="field">
+                    <input type="number" class="tabular" @bind="Vm.DimH" @bind:after="NotifyChanged" placeholder="0" />
+                </div>
+            </div>
+            <div class="field-block">
+                <label class="lbl">Unit</label>
+                <select class="input" @bind="Vm.DimUnit" @bind:after="NotifyChanged">
+                    <option value="cm">cm</option>
+                    <option value="inch">inch</option>
+                    <option value="mm">mm</option>
+                    <option value="feet">feet</option>
+                </select>
+            </div>
+        </div>
+        <div class="grid-2 mt-3">
+            <div class="field-block">
+                <label class="lbl">Resolution (DPI)</label>
+                <div class="field">
+                    <input type="number" class="tabular" @bind="Vm.ResDpi" @bind:after="NotifyChanged" placeholder="e.g. 300" />
+                </div>
+            </div>
+            <div class="field-block">
+                <label class="lbl">Framed</label>
+                <div style="margin-top:4px">
+                    <FlagToggle Val="@(Vm.IsFramed == true)"
+                                Label="Framed"
+                                Hint="Product ships with a frame."
+                                OnToggle="v => { Vm.IsFramed = v; OnChanged.InvokeAsync(); }" />
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public ProductFormViewModel Vm { get; set; } = null!;
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private Task NotifyChanged() => OnChanged.InvokeAsync();
+}

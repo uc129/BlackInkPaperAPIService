@@ -1,0 +1,120 @@
+<section id="section-taxonomy" class="section">
+    <div class="section-head">
+        <div>
+            <h3 class="h-section">Taxonomy &amp; flags</h3>
+            <div class="meta">Where this product lives, and which shelves it appears on.</div>
+        </div>
+    </div>
+    <div class="section-body">
+        <div class="grid-3">
+            @if (!IsEdit)
+            {
+                <div class="field-block">
+                    <label class="lbl">Artist <span style="color:var(--danger)">*</span></label>
+                    <select class="input" @bind="Vm.ArtistId" @bind:after="NotifyChanged">
+                        <option value="0">Select artist…</option>
+                        @foreach (var a in Artists)
+                        {
+                            <option value="@a.Id">@a.DisplayName</option>
+                        }
+                    </select>
+                </div>
+            }
+            <div class="field-block">
+                <label class="lbl">Category <span style="color:var(--danger)">*</span></label>
+                <select class="input" value="@Vm.CategoryId" @onchange="OnCategorySelectChanged">
+                    <option value="0">Select category…</option>
+                    @foreach (var c in Categories)
+                    {
+                        <option value="@c.Id">@c.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="field-block">
+                <label class="lbl">Subcategory <span style="color:var(--danger)">*</span></label>
+                <select class="input" @bind="Vm.SubCategoryId" @bind:after="NotifyChanged"
+                        disabled="@(!Subcategories.Any())">
+                    <option value="0">Select subcategory…</option>
+                    @foreach (var s in Subcategories)
+                    {
+                        <option value="@s.Id">@s.Name</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="mt-4 field-block">
+            <label class="lbl">Tags</label>
+            <div class="hint" style="margin-bottom:8px">Customers filter the catalog by these.</div>
+            <div class="tag-picker">
+                @foreach (var t in Tags)
+                {
+                    var isOn = Vm.SelectedTagIds.Contains(t.Id);
+                    var tid = t.Id;
+                    <button type="button" class="tag @(isOn ? "on" : "")"
+                            @onclick="() => ToggleTag(tid)">
+                        @if (isOn)
+                        {
+                            <Icon Name="check" Size="11" StrokeWidth="2.4" />
+                        }
+                        else
+                        {
+                            <Icon Name="plus" Size="11" />
+                        }
+                        @t.Name
+                    </button>
+                }
+            </div>
+        </div>
+
+        <div class="grid-2 mt-4">
+            <FlagToggle Val="@Vm.IsAvailable"
+                        Label="Available for purchase"
+                        Hint="Hides the product from the storefront if off."
+                        OnToggle="v => { Vm.IsAvailable = v; OnChanged.InvokeAsync(); }" />
+            <FlagToggle Val="@Vm.IsFeatured"
+                        Label="Featured on home"
+                        Hint="Shows up on the home shelf and recommendations."
+                        OnToggle="v => { Vm.IsFeatured = v; OnChanged.InvokeAsync(); }" />
+        </div>
+
+        <div class="field-block mt-4" style="max-width:220px">
+            <label class="lbl">Stock quantity</label>
+            <div class="field">
+                <input type="number" class="tabular" @bind="Vm.Stock" @bind:after="NotifyChanged"
+                       placeholder="Leave blank if unlimited" />
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public ProductFormViewModel Vm { get; set; } = null!;
+    [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public EventCallback<int> OnCategoryChanged { get; set; }
+    [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public IReadOnlyList<ArtistLookupDto> Artists { get; set; } = Array.Empty<ArtistLookupDto>();
+    [Parameter] public IReadOnlyList<ProductCategoryLookupDto> Categories { get; set; } = Array.Empty<ProductCategoryLookupDto>();
+    [Parameter] public IReadOnlyList<ProductSubCategoryLookupDto> Subcategories { get; set; } = Array.Empty<ProductSubCategoryLookupDto>();
+    [Parameter] public IReadOnlyList<ProductTagDto> Tags { get; set; } = Array.Empty<ProductTagDto>();
+
+    private Task NotifyChanged() => OnChanged.InvokeAsync();
+
+    private async Task OnCategorySelectChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var id))
+        {
+            Vm.CategoryId = id;
+            Vm.SubCategoryId = 0;
+            await OnChanged.InvokeAsync();
+            await OnCategoryChanged.InvokeAsync(id);
+        }
+    }
+
+    private async Task ToggleTag(int tagId)
+    {
+        if (Vm.SelectedTagIds.Contains(tagId)) Vm.SelectedTagIds.Remove(tagId);
+        else Vm.SelectedTagIds.Add(tagId);
+        await OnChanged.InvokeAsync();
+    }
+}

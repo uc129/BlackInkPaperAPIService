@@ -1,0 +1,114 @@
+<section id="section-variants" class="section">
+    <div class="section-head">
+        <div>
+            <h3 class="h-section">Variants</h3>
+            <div class="meta">Sizes, paper stocks or fulfillment options.</div>
+        </div>
+        <FlagToggle Val="@Vm.UseStdVariants"
+                    Label="Standard variants"
+                    Hint=""
+                    OnToggle="v => { Vm.UseStdVariants = v; OnChanged.InvokeAsync(); }" />
+    </div>
+    <div class="section-body">
+        @for (int vi = 0; vi < Vm.Variants.Count; vi++)
+        {
+            var variant = Vm.Variants[vi];
+            var vIdx = vi;
+            <div class="variant-block">
+                <div class="variant-head">
+                    <div class="field" style="max-width:220px;padding:6px 10px">
+                        <span class="muted" style="font-size:12px;white-space:nowrap">Group</span>
+                        <input @bind="variant.Label" @bind:after="NotifyChanged" placeholder="e.g. Size" />
+                    </div>
+                    <div class="field" style="max-width:180px;padding:6px 10px">
+                        <span class="muted" style="font-size:12px;white-space:nowrap">SKU</span>
+                        <input class="mono" @bind="variant.Sku" @bind:after="NotifyChanged" placeholder="e.g. HMD-A4" />
+                    </div>
+                    <div class="field" style="max-width:160px;padding:4px 8px">
+                        <select style="border:0;outline:0;background:transparent;font:inherit;color:var(--ink-900);width:100%"
+                                @bind="variant.FulfillType" @bind:after="NotifyChanged">
+                            <option value="1">Physical</option>
+                            <option value="0">Digital</option>
+                        </select>
+                    </div>
+                    <span class="spacer"></span>
+                    <button class="btn btn-icon btn-ghost" title="Remove group"
+                            @onclick="() => RemoveVariant(vIdx)">
+                        <Icon Name="trash" />
+                    </button>
+                </div>
+                <div class="variant-options-head">
+                    <span>Option</span>
+                    <span>Price modifier</span>
+                    <span>Absolute price</span>
+                    <span>Stock</span>
+                    <span></span>
+                </div>
+                @for (int oi = 0; oi < variant.Options.Count; oi++)
+                {
+                    var opt = variant.Options[oi];
+                    var oIdx = oi;
+                    <div class="variant-options">
+                        <div class="field" style="padding:6px 10px">
+                            <input @bind="opt.Value" @bind:after="NotifyChanged" placeholder="e.g. A4 (210×297mm)" />
+                        </div>
+                        <div class="field" style="padding:6px 10px">
+                            <span class="muted mono">+₹</span>
+                            <input class="tabular" type="number" @bind="opt.PriceMod" @bind:after="NotifyChanged" placeholder="0" />
+                        </div>
+                        <div class="field" style="padding:6px 10px">
+                            <span class="muted mono">₹</span>
+                            <input class="tabular" type="number" @bind="opt.AbsPrice" @bind:after="NotifyChanged" placeholder="—" />
+                        </div>
+                        <div class="field" style="padding:6px 10px">
+                            <input class="tabular" type="number" @bind="opt.Stock" @bind:after="NotifyChanged" placeholder="0" />
+                        </div>
+                        <button class="btn btn-icon btn-ghost"
+                                @onclick="() => RemoveOption(vIdx, oIdx)">
+                            <Icon Name="x" />
+                        </button>
+                    </div>
+                }
+                <div class="row mt-2">
+                    <button class="btn btn-ghost btn-sm" @onclick="() => AddOption(vIdx)">
+                        <Icon Name="plus" /> Add option
+                    </button>
+                </div>
+            </div>
+        }
+        <button class="btn btn-secondary btn-sm" @onclick="AddVariant">
+            <Icon Name="plus" /> Add variant group
+        </button>
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public ProductFormViewModel Vm { get; set; } = null!;
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private Task NotifyChanged() => OnChanged.InvokeAsync();
+
+    private async Task AddVariant()
+    {
+        Vm.Variants.Add(new());
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task RemoveVariant(int idx)
+    {
+        Vm.Variants.RemoveAt(idx);
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task AddOption(int variantIdx)
+    {
+        Vm.Variants[variantIdx].Options.Add(new());
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task RemoveOption(int variantIdx, int optIdx)
+    {
+        Vm.Variants[variantIdx].Options.RemoveAt(optIdx);
+        await OnChanged.InvokeAsync();
+    }
+}

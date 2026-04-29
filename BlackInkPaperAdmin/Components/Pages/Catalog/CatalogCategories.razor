@@ -1,4 +1,368 @@
 @page "/catalog/categories"
+@inject HttpClient Http
 <PageTitle>Categories — Black Ink Paper Admin</PageTitle>
-<div class="page-header"><div><h1 class="h-page">Categories</h1><p class="lead">Top-level catalog buckets — these power your storefront menu.</p></div><div class="page-actions"><button class="btn btn-primary"><Icon Name="plus" /> New category</button></div></div>
-<div class="card"><div class="state"><div class="state-art"><Icon Name="layers" Size="32" StrokeWidth="1.3" /></div><h3>Categories coming soon</h3><p>Will be built after the products list.</p></div></div>
+
+<div class="page-header">
+    <div>
+        <h1 class="h-page">Categories</h1>
+        <p class="lead">Top-level catalog buckets — these power your storefront menu.</p>
+    </div>
+    <div class="page-actions">
+        <button class="btn btn-primary" @onclick="OpenCreate">
+            <Icon Name="plus" /> New category
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="toolbar">
+        <div class="field" style="max-width:320px">
+            <Icon Name="search" />
+            <input placeholder="Search categories…" value="@_query" @oninput="OnSearch" />
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="list-header" style="grid-template-columns:1fr 1fr 0.6fr 0.6fr auto">
+            <span>Name</span><span>Slug</span><span>Status</span><span>Featured</span><span></span>
+        </div>
+        @for (int i = 0; i < 5; i++)
+        {
+            <div class="cat-row">
+                <div class="skel" style="height:13px;width:60%"></div>
+                <div class="skel" style="height:11px;width:70%"></div>
+                <div class="skel" style="height:20px;width:50px;border-radius:999px"></div>
+                <div class="skel" style="height:20px;width:50px;border-radius:999px"></div>
+                <div></div>
+            </div>
+        }
+    }
+    else if (_error is not null)
+    {
+        <div class="state">
+            <div class="state-art"><Icon Name="alert" Size="28" StrokeWidth="1.3" /></div>
+            <h3>Could not load categories</h3>
+            <p>@_error</p>
+            <div class="state-actions">
+                <button class="btn btn-secondary" @onclick="Load"><Icon Name="refresh" /> Retry</button>
+            </div>
+        </div>
+    }
+    else if (_filtered.Count == 0 && _all.Count > 0)
+    {
+        <div class="state">
+            <div class="state-art"><Icon Name="search" Size="28" StrokeWidth="1.3" /></div>
+            <h3>No matches</h3>
+            <p>Try a different search term.</p>
+        </div>
+    }
+    else if (_all.Count == 0)
+    {
+        <div class="state">
+            <div class="state-art"><Icon Name="layers" Size="28" StrokeWidth="1.3" /></div>
+            <h3>No categories yet</h3>
+            <p>Create your first category to start organising products.</p>
+            <div class="state-actions">
+                <button class="btn btn-primary" @onclick="OpenCreate"><Icon Name="plus" /> New category</button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="list-header" style="grid-template-columns:1fr 1fr 0.6fr 0.6fr auto">
+            <span>Name</span><span>Slug</span><span>Status</span><span>Featured</span><span></span>
+        </div>
+        @foreach (var c in _filtered)
+        {
+            var cid = c.Id;
+            <div class="cat-row">
+                <div>
+                    <div style="font-weight:600;font-size:14px">@c.Name</div>
+                    @if (!string.IsNullOrEmpty(c.PrintName))
+                    {
+                        <div style="font-size:12px;color:var(--ink-500)">@c.PrintName</div>
+                    }
+                </div>
+                <div class="mono" style="font-size:12.5px;color:var(--ink-500)">@c.Slug</div>
+                <div>
+                    <span class="badge @(c.IsActive ? "live" : "draft")">
+                        <span class="dot"></span> @(c.IsActive ? "Active" : "Inactive")
+                    </span>
+                </div>
+                <div>
+                    @if (c.IsFeatured)
+                    {
+                        <span class="badge featured"><Icon Name="star" Size="10" /> Featured</span>
+                    }
+                    else
+                    {
+                        <span style="font-size:12px;color:var(--ink-400)">—</span>
+                    }
+                </div>
+                <div class="row-actions">
+                    <button class="btn btn-icon btn-ghost" title="Edit" @onclick="() => OpenEdit(cid)">
+                        <Icon Name="edit" />
+                    </button>
+                    <button class="btn btn-icon btn-ghost" title="Delete"
+                            style="color:var(--danger)"
+                            @onclick="() => ConfirmDelete(cid)">
+                        <Icon Name="trash" />
+                    </button>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@if (_showForm)
+{
+    <div class="overlay" @onclick="CloseForm">
+        <div class="modal" @onclick:stopPropagation>
+            <div class="modal-head">
+                <h2 class="h-section">@(_editId == 0 ? "New category" : "Edit category")</h2>
+                <button class="btn btn-icon btn-ghost" @onclick="CloseForm"><Icon Name="x" /></button>
+            </div>
+            <div class="modal-body">
+                <div class="grid-2">
+                    <div class="field-block">
+                        <label class="lbl">Name <span style="color:var(--danger)">*</span></label>
+                        <div class="field">
+                            <input value="@_fName" @oninput="OnNameInput" placeholder="e.g. Prints" />
+                        </div>
+                    </div>
+                    <div class="field-block">
+                        <label class="lbl">Print name</label>
+                        <div class="field">
+                            <input @bind="_fPrintName" placeholder="Display name" />
+                        </div>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="field-block">
+                        <label class="lbl">Name code</label>
+                        <div class="field">
+                            <input @bind="_fNameCode" placeholder="e.g. CAT_PRINTS" />
+                        </div>
+                    </div>
+                    <div class="field-block">
+                        <label class="lbl">Slug</label>
+                        <div class="field">
+                            <input @bind="_fSlug" placeholder="e.g. prints" />
+                        </div>
+                    </div>
+                </div>
+                <div class="field-block">
+                    <label class="lbl">Description</label>
+                    <textarea class="input" @bind="_fDescription" rows="2" placeholder="Optional description…"></textarea>
+                </div>
+                <div class="field-block">
+                    <label class="lbl">Cover image URL</label>
+                    <div class="field">
+                        <input @bind="_fCoverImageUrl" placeholder="https://…" />
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <label class="toggle @(_fIsActive ? "on" : "")" @onclick="() => _fIsActive = !_fIsActive">
+                        <div class="toggle-track"></div>
+                        <span class="toggle-text">Active</span>
+                    </label>
+                    <label class="toggle @(_fIsFeatured ? "on" : "")" @onclick="() => _fIsFeatured = !_fIsFeatured">
+                        <div class="toggle-track"></div>
+                        <span class="toggle-text">Featured</span>
+                    </label>
+                </div>
+                @if (_formError is not null)
+                {
+                    <div style="font-size:13px;color:var(--danger);display:flex;gap:6px;align-items:center">
+                        <Icon Name="alert" Size="13" /> @_formError
+                    </div>
+                }
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-secondary" @onclick="CloseForm">Cancel</button>
+                <span class="spacer"></span>
+                <button class="btn btn-primary" @onclick="Save" disabled="@_saving">
+                    @(_saving ? "Saving…" : "Save category")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_deleteId != 0)
+{
+    <DeleteConfirmModal EntityName="category"
+        BodyText="This will permanently remove the category. Products in this category will lose their classification."
+        Error="@_deleteError" Deleting="@_deleting"
+        OnConfirm="DeleteConfirmed"
+        OnCancel="() => _deleteId = 0" />
+}
+
+<Toast Message="@_toast" />
+
+<style>
+    .cat-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 0.6fr 0.6fr auto;
+        align-items: center;
+        gap: 18px;
+        padding: 12px 18px;
+        border-bottom: 1px solid var(--line-soft);
+    }
+    .cat-row:last-child { border-bottom: 0; }
+    .cat-row:hover { background: var(--paper-100); }
+    .cat-row .row-actions { display: flex; gap: 2px; opacity: 0.6; transition: opacity 0.12s; }
+    .cat-row:hover .row-actions { opacity: 1; }
+</style>
+
+@code {
+    private List<ProductCategoryLookupDto> _all = new();
+    private List<ProductCategoryLookupDto> _filtered = new();
+    private string _query = "";
+    private bool _loading = true;
+    private string? _error;
+
+    // form
+    private bool _showForm;
+    private int _editId;
+    private string _fName = "", _fPrintName = "", _fNameCode = "", _fSlug = "", _fDescription = "", _fCoverImageUrl = "";
+    private bool _fIsActive = true, _fIsFeatured;
+    private string? _formError;
+    private bool _saving;
+
+    // delete
+    private int _deleteId;
+    private string? _deleteError;
+    private bool _deleting;
+
+    private string? _toast;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        _loading = true; _error = null;
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<ServiceResponse<IReadOnlyList<ProductCategoryLookupDto>>>(
+                "api/admin/product-options/categories");
+            if (resp?.Success == true && resp.Data is not null)
+                _all = resp.Data.ToList();
+            else
+                _error = resp?.Message ?? "Unknown error";
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        ApplyFilter();
+        _loading = false;
+    }
+
+    private void OnSearch(ChangeEventArgs e) { _query = e.Value?.ToString() ?? ""; ApplyFilter(); }
+
+    private void ApplyFilter()
+    {
+        var q = _query.Trim().ToLowerInvariant();
+        _filtered = string.IsNullOrEmpty(q)
+            ? _all.ToList()
+            : _all.Where(c => c.Name.ToLowerInvariant().Contains(q) || c.Slug.ToLowerInvariant().Contains(q)).ToList();
+    }
+
+    private void OpenCreate()
+    {
+        _editId = 0; _fName = ""; _fPrintName = ""; _fNameCode = ""; _fSlug = "";
+        _fDescription = ""; _fCoverImageUrl = ""; _fIsActive = true; _fIsFeatured = false;
+        _formError = null; _showForm = true;
+    }
+
+    private void OpenEdit(int id)
+    {
+        var c = _all.First(x => x.Id == id);
+        _editId = id; _fName = c.Name; _fPrintName = c.PrintName ?? ""; _fNameCode = c.NameCode ?? "";
+        _fSlug = c.Slug; _fDescription = c.Description ?? ""; _fCoverImageUrl = c.CoverImageUrl ?? "";
+        _fIsActive = c.IsActive; _fIsFeatured = c.IsFeatured; _formError = null; _showForm = true;
+    }
+
+    private void CloseForm() => _showForm = false;
+
+    private void OnNameInput(ChangeEventArgs e)
+    {
+        _fName = e.Value?.ToString() ?? "";
+        if (_editId == 0) _fSlug = SlugHelper.Slugify(_fName);
+    }
+
+    private async Task Save()
+    {
+        if (string.IsNullOrWhiteSpace(_fName)) { _formError = "Name is required."; return; }
+        if (string.IsNullOrWhiteSpace(_fSlug)) { _formError = "Slug is required."; return; }
+        _saving = true; _formError = null;
+        try
+        {
+            HttpResponseMessage resp;
+            if (_editId == 0)
+            {
+                resp = await Http.PostAsJsonAsync("api/admin/product-options/categories",
+                    new { nameCode = _fNameCode, name = _fName, printName = _fPrintName, slug = _fSlug,
+                          description = _fDescription, coverImageUrl = _fCoverImageUrl,
+                          isActive = _fIsActive, isFeatured = _fIsFeatured });
+            }
+            else
+            {
+                resp = await Http.PutAsJsonAsync($"api/admin/product-options/categories/{_editId}",
+                    new { nameCode = _fNameCode, name = _fName, printName = _fPrintName, slug = _fSlug,
+                          description = _fDescription, coverImageUrl = _fCoverImageUrl,
+                          isActive = _fIsActive, isFeatured = _fIsFeatured });
+            }
+
+            var result = await resp.Content.ReadFromJsonAsync<ServiceResponse<ProductCategoryLookupDto>>(
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (result?.Success == true)
+            {
+                _showForm = false;
+                await Load();
+                ShowToast(_editId == 0 ? "Category created." : "Category updated.");
+            }
+            else
+            {
+                _formError = result?.Message ?? "Save failed.";
+            }
+        }
+        catch (Exception ex) { _formError = ex.Message; }
+        _saving = false;
+    }
+
+    private void ConfirmDelete(int id) { _deleteId = id; _deleteError = null; }
+
+    private async Task DeleteConfirmed()
+    {
+        _deleting = true; _deleteError = null;
+        try
+        {
+            var resp = await Http.DeleteAsync($"api/admin/product-options/categories/{_deleteId}");
+            var result = await resp.Content.ReadFromJsonAsync<ServiceResponse<bool>>(
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (result?.Success == true)
+            {
+                _deleteId = 0;
+                await Load();
+                ShowToast("Category deleted.");
+            }
+            else
+            {
+                _deleteError = result?.Message ?? "Delete failed.";
+            }
+        }
+        catch (Exception ex) { _deleteError = ex.Message; }
+        _deleting = false;
+    }
+
+    private async void ShowToast(string msg)
+    {
+        _toast = msg;
+        StateHasChanged();
+        await Task.Delay(3000);
+        _toast = null;
+        StateHasChanged();
+    }
+
+}

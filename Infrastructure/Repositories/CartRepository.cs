@@ -58,9 +58,8 @@ public class CartRepository(IDapperContext dapperContext) : ICartRepository
     {
         const string sql = """
             INSERT INTO Carts (UserId, CurrencyCode, Status, CreatedAt, UpdatedAt)
-            VALUES (@UserId, @CurrencyCode, 'Active', @CreatedAt, @UpdatedAt);
-
-            SELECT CAST(SCOPE_IDENTITY() AS int);
+            VALUES (@UserId, @CurrencyCode, 'Active', @CreatedAt, @UpdatedAt)
+            RETURNING Id;
             """;
 
         using var connection = dapperContext.CreateConnection();
@@ -111,9 +110,8 @@ public class CartRepository(IDapperContext dapperContext) : ICartRepository
                 @FulfillmentType,
                 @AddedAt,
                 @UpdatedAt
-            );
-
-            SELECT CAST(SCOPE_IDENTITY() AS int);
+            )
+            RETURNING Id;
             """;
 
         using var connection = dapperContext.CreateConnection();

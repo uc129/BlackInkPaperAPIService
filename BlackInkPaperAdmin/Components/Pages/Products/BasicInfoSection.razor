@@ -1,0 +1,81 @@
+<section id="section-basic" class="section">
+    <div class="section-head">
+        <div>
+            <h3 class="h-section">Basic info</h3>
+            <div class="meta">Name, code and copy your customers will read.</div>
+        </div>
+    </div>
+    <div class="section-body">
+        <div class="grid-2">
+            <div class="field-block">
+                <label class="lbl">Product name <span style="color:var(--danger)">*</span></label>
+                <div class="field">
+                    <input value="@Vm.Name" @oninput="OnNameInput" placeholder="e.g. Hawa Mahal at Dawn" />
+                </div>
+            </div>
+            <div class="field-block">
+                <label class="lbl">SKU / Product ID <span style="color:var(--danger)">*</span></label>
+                <div class="field">
+                    <input class="mono" @bind="Vm.ProductId" @bind:after="NotifyChanged" placeholder="e.g. HMD-018" />
+                </div>
+                <div class="hint">Unique code, shown on invoices.</div>
+            </div>
+        </div>
+        <div class="grid-2 mt-3">
+            <div class="field-block">
+                <label class="lbl">URL slug</label>
+                <div class="field">
+                    <input class="mono" value="@Vm.Slug" @oninput="OnSlugInput" placeholder="e.g. hawa-mahal-at-dawn" />
+                </div>
+                <div class="hint">blackinkpaper.com/print/@Vm.Slug</div>
+            </div>
+            <div class="field-block">
+                <label class="lbl">Print name</label>
+                <div class="field">
+                    <input @bind="Vm.PrintName" @bind:after="NotifyChanged" placeholder="Appears on the certificate" />
+                </div>
+            </div>
+        </div>
+        <div class="field-block mt-3">
+            <label class="lbl">Name code <span style="color:var(--danger)">*</span></label>
+            <div class="field">
+                <input @bind="Vm.NameCode" @bind:after="NotifyChanged" placeholder="Short internal code for i18n" />
+            </div>
+        </div>
+        <div class="field-block mt-3">
+            <label class="lbl">Short description</label>
+            <div class="field">
+                <input @bind="Vm.ShortDesc" @bind:after="NotifyChanged" placeholder="One line, shown on the catalog tile" />
+            </div>
+        </div>
+        <div class="field-block mt-3">
+            <label class="lbl">Description</label>
+            <textarea class="input" rows="5" @bind="Vm.Description" @bind:after="NotifyChanged"
+                      placeholder="Full product description…"></textarea>
+        </div>
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public ProductFormViewModel Vm { get; set; } = null!;
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private bool _slugManuallyEdited;
+
+    private Task NotifyChanged() => OnChanged.InvokeAsync();
+
+    private async Task OnNameInput(ChangeEventArgs e)
+    {
+        Vm.Name = e.Value?.ToString() ?? "";
+        if (!_slugManuallyEdited)
+            Vm.Slug = SlugHelper.Slugify(Vm.Name);
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task OnSlugInput(ChangeEventArgs e)
+    {
+        Vm.Slug = e.Value?.ToString() ?? "";
+        _slugManuallyEdited = true;
+        await OnChanged.InvokeAsync();
+    }
+}

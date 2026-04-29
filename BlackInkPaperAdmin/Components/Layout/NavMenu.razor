@@ -1,4 +1,5 @@
 @inject NavigationManager Nav
+@inject IAuthService AuthService
 
 <aside class="sidebar">
     <div class="brand">
@@ -50,13 +51,33 @@
     </div>
 
     <div class="sidebar-footer">
-        <div class="avatar">UC</div>
+        @{
+            var user = AuthService.GetCurrentUser();
+            var initials = user is not null
+                ? string.Concat(user.Name.Split(' ').Take(2).Select(w => w.Length > 0 ? w[0].ToString() : "")).ToUpper()
+                : "?";
+            var displayName = user?.Name ?? "Admin";
+            var displayRole = user?.Role ?? "";
+        }
+        <div class="avatar">@initials</div>
         <div class="flex-col" style="min-width:0">
-            <div class="user-name">Utkarsh C.</div>
-            <div class="user-role">Owner</div>
+            <div class="user-name">@displayName</div>
+            @if (!string.IsNullOrEmpty(displayRole))
+            {
+                <div class="user-role">@displayRole</div>
+            }
         </div>
-        <a href="/login" class="btn btn-icon btn-ghost" style="margin-left:auto" title="Sign out">
+        <button class="btn btn-icon btn-ghost" style="margin-left:auto" title="Sign out"
+                @onclick="HandleLogout">
             <Icon Name="logout" />
-        </a>
+        </button>
     </div>
 </aside>
+
+@code {
+    private async Task HandleLogout()
+    {
+        await AuthService.LogoutAsync();
+        Nav.NavigateTo("/login");
+    }
+}

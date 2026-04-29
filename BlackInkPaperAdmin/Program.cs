@@ -1,9 +1,13 @@
 using BlackInkPaperAdmin.Components;
+using BlackInkPaperAdmin.Services.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddScoped<TokenStore>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddHttpClient("AdminApi", client =>
 {

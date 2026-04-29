@@ -1,5 +1,9 @@
 @page "/login"
 @layout EmptyLayout
+@inject IAuthService AuthService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject TokenStore Store
 <PageTitle>Sign in — Black Ink Paper Admin</PageTitle>
 
 <div class="auth-shell">
@@ -29,7 +33,8 @@
                 </div>
                 <div class="field">
                     <Icon Name="lock" />
-                    <input type="password" @bind="_password" placeholder="••••••••" />
+                    <input type="password" @bind="_password" placeholder="••••••••"
+                           @onkeydown="OnKeyDown" />
                 </div>
             </div>
             @if (_error is not null)
@@ -52,12 +57,42 @@
     private string? _error;
     private bool _loading;
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        // Redirect if already authenticated
+        if (Store.Token is not null)
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
+        string? saved = null;
+        try { saved = await JS.InvokeAsync<string?>("localStorage.getItem", "bip_admin_token"); } catch { }
+        if (!string.IsNullOrEmpty(saved) && await AuthService.InitializeAsync(saved))
+            Nav.NavigateTo("/");
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await HandleLogin();
+    }
+
     private async Task HandleLogin()
     {
+        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
+        {
+            _error = "Email and password are required.";
+            return;
+        }
         _loading = true;
         _error = null;
-        await Task.Delay(600); // TODO: call auth API
-        _error = "Invalid credentials — API not wired up yet.";
-        _loading = false;
+        var (ok, err) = await AuthService.LoginAsync(_email, _password);
+        if (ok)
+            Nav.NavigateTo("/");
+        else
+        {
+            _error = err ?? "Login failed.";
+            _loading = false;
+        }
     }
 }

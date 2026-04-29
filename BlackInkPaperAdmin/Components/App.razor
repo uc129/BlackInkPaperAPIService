@@ -14,6 +14,35 @@
 <body>
     <Routes @rendermode="InteractiveServer" />
     <script src="_framework/blazor.server.js"></script>
+    <script>
+        window.scrollToElement = function (id) {
+            const el = document.getElementById(id);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+        window.initSectionObserver = function (dotNetRef) {
+            var content = document.querySelector('.content');
+            if (!content) return;
+            function update() {
+                var sections = content.querySelectorAll('section[id^="section-"]');
+                var current = null;
+                for (var i = 0; i < sections.length; i++) {
+                    var rect = sections[i].getBoundingClientRect();
+                    if (rect.top <= 120) current = sections[i].id.replace('section-', '');
+                }
+                if (current) dotNetRef.invokeMethodAsync('SetActiveSection', current);
+            }
+            window._sectionScrollHandler = function () { requestAnimationFrame(update); };
+            content.addEventListener('scroll', window._sectionScrollHandler);
+            update();
+        };
+        window.disposeSectionObserver = function () {
+            var content = document.querySelector('.content');
+            if (content && window._sectionScrollHandler) {
+                content.removeEventListener('scroll', window._sectionScrollHandler);
+                window._sectionScrollHandler = null;
+            }
+        };
+    </script>
     <div id="blazor-error-ui">
         An unhandled error has occurred. <button class="reload" onclick="location.reload()">Reload</button>
         <button class="dismiss">✕</button>

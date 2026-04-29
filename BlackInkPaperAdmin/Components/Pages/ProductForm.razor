@@ -1,0 +1,509 @@
+@page "/products/create"
+@page "/products/{Id:int}/edit"
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime Js
+@implements IAsyncDisposable
+
+<PageTitle>@(IsEdit ? "Edit product" : "New product") — Black Ink Paper Admin</PageTitle>
+
+@if (_loadError is not null)
+{
+    <div class="state">
+        <div class="state-art"><Icon Name="alert" Size="28" StrokeWidth="1.3" /></div>
+        <h3>Could not load product</h3>
+        <p>@_loadError</p>
+        <div class="state-actions">
+            <a href="/products" class="btn btn-secondary"><Icon Name="chevronRight" Style="transform:rotate(180deg)" /> Back</a>
+        </div>
+    </div>
+}
+else if (_pageLoading)
+{
+    <div class="state" style="padding-top:80px">
+        <div class="state-art"><Icon Name="package" Size="28" StrokeWidth="1.3" /></div>
+        <h3>Loading product…</h3>
+    </div>
+}
+else
+{
+    <div class="page-header">
+        <div>
+            <div class="row gap-2" style="margin-bottom:6px">
+                <a href="/products" class="btn btn-ghost btn-sm">
+                    <Icon Name="chevronRight" Size="12" Style="transform:rotate(180deg)" /> Back to products
+                </a>
+            </div>
+            <h1 class="h-page">@(string.IsNullOrWhiteSpace(_vm.Name) ? "New product" : _vm.Name)</h1>
+            <div class="row gap-2 mt-2">
+                @if (!string.IsNullOrWhiteSpace(_vm.ProductId))
+                {
+                    <span class="mono muted" style="font-size:12px">@_vm.ProductId</span>
+                }
+                <span class="badge @(_vm.IsAvailable ? "live" : "draft")">
+                    <span class="dot"></span> @(_vm.IsAvailable ? "live" : "draft")
+                </span>
+                @if (_vm.IsFeatured)
+                {
+                    <span class="badge featured"><Icon Name="star" Size="11" /> Featured</span>
+                }
+            </div>
+        </div>
+        <div class="page-actions">
+            <button class="btn btn-secondary" disabled><Icon Name="eye" /> Preview</button>
+            @if (IsEdit)
+            {
+                @if (_confirmDelete)
+                {
+                    <button class="btn btn-danger" @onclick="ConfirmDelete" disabled="@_deleting">
+                        @(_deleting ? "Deleting…" : "Are you sure?")
+                    </button>
+                    <button class="btn btn-secondary" @onclick="CancelDelete">Cancel</button>
+                }
+                else
+                {
+                    <button class="btn btn-danger" @onclick="StartDelete">
+                        <Icon Name="trash" /> Delete
+                    </button>
+                }
+            }
+        </div>
+    </div>
+
+    <div class="editor-layout">
+        <nav class="editor-nav">
+            <div class="eyebrow" style="padding:4px 14px 6px">On this page</div>
+            @foreach (var s in Sections)
+            {
+                <button class="editor-nav-item @(_activeSection == s.Id ? "on" : "")"
+                        @onclick="() => ScrollTo(s.Id)">@s.Label</button>
+            }
+        </nav>
+
+        <div class="editor-sections">
+            <BasicInfoSection Vm="_vm" OnChanged="MarkDirty" />
+            <PricingSection   Vm="_vm" OnChanged="MarkDirty" />
+            <ArtSpecsSection  Vm="_vm" OnChanged="MarkDirty" />
+            <ImagesSection    Vm="_vm" OnChanged="MarkDirty" />
+            <VariantsSection  Vm="_vm" OnChanged="MarkDirty" />
+            <TaxonomySection  Vm="_vm" IsEdit="IsEdit"
+                              Artists="_artists" Categories="_categories"
+                              Subcategories="_subcategories" Tags="_tags"
+                              OnChanged="MarkDirty"
+                              OnCategoryChanged="HandleCategoryChanged" />
+        </div>
+    </div>
+
+    <div class="save-bar">
+        <span class="changes">
+            @if (_isDirty)
+            {
+                <span class="badge warn"><span class="dot"></span> Unsaved changes</span>
+            }
+            else if (_savedOnce)
+            {
+                <Icon Name="check" Size="13" Style="color:var(--ok)" /> <span style="margin-left:4px">All changes saved</span>
+            }
+        </span>
+        @if (_saveError is not null)
+        {
+            <span style="font-size:12px;color:var(--danger);display:flex;gap:6px;align-items:center">
+                <Icon Name="alert" Size="13" /> @_saveError
+            </span>
+        }
+        <div class="actions">
+            <button class="btn btn-secondary" @onclick="SaveDraft" disabled="@_saving">
+                @(_saving ? "Saving…" : "Save as draft")
+            </button>
+            <button class="btn btn-primary" @onclick="SavePublish" disabled="@_saving">
+                <Icon Name="check" /> @(_saving ? "Saving…" : "Save & publish")
+            </button>
+        </div>
+    </div>
+
+    @if (_toastVisible)
+    {
+        <div class="toast">
+            <Icon Name="check" CssClass="ico ico-ok" />
+            <span>Product saved</span>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private bool IsEdit => Id > 0;
+
+    // ── Page state ───────────────────────────────────────────────────
+    private bool _pageLoading = true;
+    private string? _loadError;
+    private bool _saving;
+    private bool _deleting;
+    private bool _confirmDelete;
+    private bool _isDirty;
+    private bool _savedOnce;
+    private bool _toastVisible;
+    private string? _saveError;
+    private string _activeSection = "basic";
+
+    // ── Form state (ViewModel) ───────────────────────────────────────
+    private readonly ProductFormViewModel _vm = new();
+
+    // ── Reference data ───────────────────────────────────────────────
+    private List<ArtistLookupDto>            _artists       = [];
+    private List<ProductCategoryLookupDto>   _categories    = [];
+    private List<ProductSubCategoryLookupDto> _subcategories = [];
+    private List<ProductTagDto>              _tags          = [];
+
+    // ── Section nav ──────────────────────────────────────────────────
+    private static readonly (string Id, string Label)[] Sections =
+    [
+        ("basic",    "Basic info"),
+        ("pricing",  "Pricing"),
+        ("specs",    "Art specs"),
+        ("images",   "Images"),
+        ("variants", "Variants"),
+        ("taxonomy", "Taxonomy & flags"),
+    ];
+
+    private DotNetObjectReference<ProductForm>? _dotNetRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _dotNetRef = DotNetObjectReference.Create(this);
+        try { await Js.InvokeVoidAsync("initSectionObserver", _dotNetRef); }
+        catch
+        {
+            // ignored
+        }
+    }
+
+    [JSInvokable]
+    public void SetActiveSection(string id)
+    {
+        if (_activeSection == id) return;
+        _activeSection = id;
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var artistsTask    = Http.GetFromJsonAsync<ServiceResponse<IReadOnlyList<ArtistLookupDto>>>("api/admin/product-options/artists");
+        var categoriesTask = Http.GetFromJsonAsync<ServiceResponse<IReadOnlyList<ProductCategoryLookupDto>>>("api/admin/product-options/categories");
+        var tagsTask       = Http.GetFromJsonAsync<ServiceResponse<IReadOnlyList<ProductTagDto>>>("api/admin/product-options/tags");
+        await Task.WhenAll(artistsTask, categoriesTask, tagsTask);
+
+        _artists    = (await artistsTask)?.Data?.ToList()    ?? new();
+        _categories = (await categoriesTask)?.Data?.ToList() ?? new();
+        _tags       = (await tagsTask)?.Data?.ToList()       ?? new();
+
+        if (IsEdit)
+        {
+            try
+            {
+                var resp = await Http.GetFromJsonAsync<ServiceResponse<ProductResponseDto>>($"api/admin/products/{Id}");
+                if (resp?.Success == true && resp.Data is not null)
+                    PopulateFrom(resp.Data);
+                else
+                    _loadError = resp?.Message ?? "Product not found.";
+            }
+            catch (Exception ex)
+            {
+                _loadError = ex.Message;
+            }
+        }
+        else
+        {
+            _isDirty = true;
+        }
+
+        _pageLoading = false;
+    }
+
+    private void PopulateFrom(ProductResponseDto p)
+    {
+        _vm.Name        = p.Name;
+        _vm.ProductId   = p.ProductId;
+        _vm.Slug        = p.Slug;
+        _vm.PrintName   = p.Content.PrintName;
+        _vm.NameCode    = p.Content.NameCode;
+        _vm.ShortDesc   = p.Content.ShortDescription ?? "";
+        _vm.Description = p.Content.Description;
+        _vm.BasePrice   = p.Pricing.BasePrice;
+        _vm.FinalPrice  = p.Pricing.FinalPrice;
+        _vm.Currency    = p.Pricing.CurrencyCode;
+        _vm.Stock       = p.Stats.StockQuantity;
+        _vm.CoverUrl    = p.Media.CoverImageUrl;
+        _vm.HeaderUrl   = p.Media.HeaderImageUrl;
+        _vm.Material    = p.ArtSpecs?.Material ?? "";
+        _vm.FileFormat  = p.ArtSpecs?.FileFormat ?? "";
+        _vm.PixelDims   = p.ArtSpecs?.PixelDimensions ?? "";
+        _vm.WeightGrams = p.ArtSpecs?.WeightGrams;
+        _vm.IsFramed    = p.ArtSpecs?.IsFramed;
+        _vm.DimW        = p.ArtSpecs?.PhysicalDimensions?.Width;
+        _vm.DimH        = p.ArtSpecs?.PhysicalDimensions?.Height;
+        _vm.DimUnit     = p.ArtSpecs?.PhysicalDimensions?.Unit ?? "cm";
+        _vm.ResDpi      = p.ArtSpecs?.ResolutionDpi;
+        _vm.ArtistId    = p.ArtistId;
+        _vm.CategoryId     = p.Taxonomy.CategoryId;
+        _vm.SubCategoryId  = p.Taxonomy.SubCategoryId;
+        _vm.IsAvailable    = p.Taxonomy.IsAvailable;
+        _vm.IsFeatured     = p.Taxonomy.IsFeatured;
+        _vm.UseStdVariants = p.IsUsingStandardVariants;
+        _vm.SelectedTagIds = p.Tags.Select(t => t.Id).ToList();
+        _vm.Variants = p.Variants.Select(v => new VariantGroupModel
+        {
+            Label       = v.Label,
+            Sku         = v.Sku,
+            FulfillType = v.FulfillmentType,
+            Options     = v.Options.Select(o => new VariantOptionModel
+            {
+                Value    = o.Value,
+                PriceMod = o.PriceModifier,
+                AbsPrice = o.AbsolutePrice,
+                Stock    = o.StockQuantity,
+            }).ToList(),
+        }).ToList();
+
+        if (_vm.CategoryId > 0)
+            _ = LoadSubCategories(_vm.CategoryId);
+    }
+
+    private void MarkDirty() => _isDirty = true;
+
+    // ── Category / subcategory ───────────────────────────────────────
+
+    private Task HandleCategoryChanged(int catId) => LoadSubCategories(catId);
+
+    private async Task LoadSubCategories(int catId)
+    {
+        if (catId == 0) { _subcategories = new(); return; }
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<ServiceResponse<IReadOnlyList<ProductSubCategoryLookupDto>>>(
+                $"api/admin/product-options/subcategories?categoryId={catId}");
+            _subcategories = resp?.Data?.ToList() ?? new();
+        }
+        catch { _subcategories = new(); }
+    }
+
+    // ── Validation ───────────────────────────────────────────────────
+
+    private string? Validate()
+    {
+        if (string.IsNullOrWhiteSpace(_vm.Name))      return "Product name is required.";
+        if (string.IsNullOrWhiteSpace(_vm.ProductId)) return "SKU / Product ID is required.";
+        if (string.IsNullOrWhiteSpace(_vm.NameCode))  return "Name code is required.";
+        if (_vm.FinalPrice <= 0)                      return "Selling price must be greater than 0.";
+        if (!IsEdit && _vm.ArtistId <= 0)             return "Please select an artist.";
+        if (_vm.CategoryId <= 0)                      return "Please select a category.";
+        if (_vm.SubCategoryId <= 0)                   return "Please select a subcategory.";
+        return null;
+    }
+
+    // ── Save ─────────────────────────────────────────────────────────
+
+    private Task SaveDraft()   { _vm.IsAvailable = false; return HandleSave(); }
+    private Task SavePublish() { _vm.IsAvailable = true;  return HandleSave(); }
+
+    private async Task HandleSave()
+    {
+        _saveError = Validate();
+        if (_saveError is not null) return;
+
+        _saving = true;
+        var artSpecs = BuildArtSpecs();
+
+        try
+        {
+            HttpResponseMessage httpResp;
+
+            if (IsEdit)
+            {
+                var req = new UpdateProductRequest(
+                    ProductId:               _vm.ProductId,
+                    Name:                    _vm.Name,
+                    Slug:                    _vm.Slug,
+                    CategoryId:              _vm.CategoryId,
+                    SubCategoryId:           _vm.SubCategoryId,
+                    ArtSpecs:                artSpecs,
+                    IsUsingStandardVariants: _vm.UseStdVariants,
+                    IsFeatured:              _vm.IsFeatured,
+                    IsAvailable:             _vm.IsAvailable,
+                    Content:                 new(_vm.NameCode, _vm.PrintName, _vm.Description, _vm.ShortDesc),
+                    Pricing:                 new(_vm.BasePrice, _vm.FinalPrice, _vm.Currency),
+                    Media:                   new(_vm.CoverUrl, _vm.HeaderUrl),
+                    StockQuantity:           _vm.Stock,
+                    TagIds:                  _vm.SelectedTagIds,
+                    Images:                  null,
+                    Variants:                BuildUpdateVariants());
+                httpResp = await Http.PutAsJsonAsync($"api/admin/products/{Id}", req);
+            }
+            else
+            {
+                var req = new CreateProductRequest(
+                    ProductId:               _vm.ProductId,
+                    Name:                    _vm.Name,
+                    Slug:                    _vm.Slug,
+                    ArtistId:                _vm.ArtistId,
+                    CategoryId:              _vm.CategoryId,
+                    SubCategoryId:           _vm.SubCategoryId,
+                    ArtSpecs:                artSpecs,
+                    IsUsingStandardVariants: _vm.UseStdVariants,
+                    IsFeatured:              _vm.IsFeatured,
+                    IsAvailable:             _vm.IsAvailable,
+                    Content:                 new(_vm.NameCode, _vm.PrintName, _vm.Description, _vm.ShortDesc),
+                    Pricing:                 new(_vm.BasePrice, _vm.FinalPrice, _vm.Currency),
+                    Media:                   new(_vm.CoverUrl, _vm.HeaderUrl),
+                    StockQuantity:           _vm.Stock,
+                    TagIds:                  _vm.SelectedTagIds,
+                    Images:                  null,
+                    Variants:                BuildCreateVariants());
+                httpResp = await Http.PostAsJsonAsync("api/admin/products", req);
+            }
+
+            if (httpResp.IsSuccessStatusCode)
+            {
+                var body = await httpResp.Content.ReadFromJsonAsync<ServiceResponse<ProductResponseDto>>();
+                if (body?.Success == true)
+                {
+                    _isDirty = false;
+                    _savedOnce = true;
+                    _toastVisible = true;
+                    _ = HideToast();
+                    if (!IsEdit && body.Data is not null)
+                    {
+                        var newId = body.Data.Id;
+                        await Task.Delay(800);
+                        Nav.NavigateTo($"/products/{newId}/edit");
+                        return;
+                    }
+                }
+                else
+                {
+                    _saveError = body?.Message ?? "Save failed.";
+                }
+            }
+            else
+            {
+                try
+                {
+                    var problem = await httpResp.Content.ReadFromJsonAsync<ProblemDetailsDto>();
+                    _saveError = problem?.Title ?? $"HTTP {(int)httpResp.StatusCode}";
+                }
+                catch
+                {
+                    _saveError = $"HTTP {(int)httpResp.StatusCode}";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _saveError = ex.Message;
+        }
+        _saving = false;
+    }
+
+    // ── Delete ───────────────────────────────────────────────────────
+
+    private void StartDelete()  => _confirmDelete = true;
+    private void CancelDelete() => _confirmDelete = false;
+
+    private async Task ConfirmDelete()
+    {
+        _deleting = true;
+        try
+        {
+            var resp = await Http.DeleteAsync($"api/admin/products/{Id}");
+            if (resp.IsSuccessStatusCode)
+                Nav.NavigateTo("/products");
+            else
+                _saveError = $"Delete failed: HTTP {(int)resp.StatusCode}";
+        }
+        catch (Exception ex)
+        {
+            _saveError = ex.Message;
+        }
+        _deleting = false;
+        _confirmDelete = false;
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────
+
+    private async Task ScrollTo(string sectionId)
+    {
+        _activeSection = sectionId;
+        await Js.InvokeVoidAsync("scrollToElement", "section-" + sectionId);
+    }
+
+    private async Task HideToast()
+    {
+        await Task.Delay(2400);
+        _toastVisible = false;
+        StateHasChanged();
+    }
+
+    private ArtSpecificationsDto? BuildArtSpecs()
+    {
+        if (string.IsNullOrWhiteSpace(_vm.Material) && string.IsNullOrWhiteSpace(_vm.FileFormat)
+            && string.IsNullOrWhiteSpace(_vm.PixelDims) && !_vm.WeightGrams.HasValue
+            && !_vm.IsFramed.HasValue && !_vm.DimW.HasValue && !_vm.ResDpi.HasValue)
+            return null;
+
+        DimensionsDto? dims = (_vm.DimW.HasValue && _vm.DimH.HasValue)
+            ? new DimensionsDto(_vm.DimW.Value, _vm.DimH.Value, _vm.DimUnit)
+            : null;
+
+        return new ArtSpecificationsDto(
+            PhysicalDimensions: dims,
+            WeightGrams:        _vm.WeightGrams,
+            IsFramed:           _vm.IsFramed,
+            Material:           Emp(_vm.Material),
+            FileFormat:         Emp(_vm.FileFormat),
+            ResolutionDpi:      _vm.ResDpi,
+            PixelDimensions:    Emp(_vm.PixelDims));
+    }
+
+    private List<CreateProductVariantDto> BuildCreateVariants() =>
+        _vm.Variants.Select(v => new CreateProductVariantDto(
+            Label:           v.Label,
+            FulfillmentType: v.FulfillType,
+            Sku:             v.Sku,
+            WeightGrams:     null,
+            StockQuantity:   null,
+            AbsolutePrice:   null,
+            Options:         v.Options.Select(o => new CreateProductVariantOptionDto(
+                Value: o.Value, PriceModifier: o.PriceMod,
+                AbsolutePrice: o.AbsPrice, StockQuantity: o.Stock)).ToList()
+        )).ToList();
+
+    private List<UpdateProductVariantDto> BuildUpdateVariants() =>
+        _vm.Variants.Select(v => new UpdateProductVariantDto(
+            Id:              null,
+            Label:           v.Label,
+            FulfillmentType: v.FulfillType,
+            Sku:             v.Sku,
+            WeightGrams:     null,
+            StockQuantity:   null,
+            AbsolutePrice:   null,
+            Options:         v.Options.Select(o => new UpdateProductVariantOptionDto(
+                Id: null, Value: o.Value, PriceModifier: o.PriceMod,
+                AbsolutePrice: o.AbsPrice, StockQuantity: o.Stock)).ToList()
+        )).ToList();
+
+    private static string? Emp(string s) => string.IsNullOrWhiteSpace(s) ? null : s;
+
+    // ── JS lifecycle ─────────────────────────────────────────────────
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("disposeSectionObserver");
+        }
+        catch
+        { return;}
+        _dotNetRef?.Dispose();
+    }
+}

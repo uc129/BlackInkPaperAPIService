@@ -1,0 +1,34 @@
+<div class="overlay" @onclick="OnCancel">
+    <div class="modal" style="max-width:360px" @onclick:stopPropagation>
+        <div class="modal-head">
+            <h2 class="h-section">Delete @EntityName?</h2>
+        </div>
+        <div class="modal-body">
+            @if (BodyText is not null)
+            {
+                <p style="font-size:13.5px;color:var(--ink-700)">@BodyText</p>
+            }
+            @if (Error is not null)
+            {
+                <div style="font-size:13px;color:var(--danger)">@Error</div>
+            }
+        </div>
+        <div class="modal-foot">
+            <button class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+            <span class="spacer"></span>
+            <button class="btn btn-danger" style="background:var(--danger);color:white"
+                    @onclick="OnConfirm" disabled="@Deleting">
+                @(Deleting ? "Deleting…" : "Delete")
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string EntityName       { get; set; } = "item";
+    [Parameter] public string? BodyText        { get; set; }
+    [Parameter] public string? Error           { get; set; }
+    [Parameter] public bool Deleting           { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel  { get; set; }
+}

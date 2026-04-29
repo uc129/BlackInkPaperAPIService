@@ -1,4 +1,382 @@
 @page "/catalog/subcategories"
+@inject HttpClient Http
 <PageTitle>Subcategories — Black Ink Paper Admin</PageTitle>
-<div class="page-header"><div><h1 class="h-page">Subcategories</h1><p class="lead">Nested groupings under each category.</p></div><div class="page-actions"><button class="btn btn-primary"><Icon Name="plus" /> New subcategory</button></div></div>
-<div class="card"><div class="state"><div class="state-art"><Icon Name="layers" Size="32" StrokeWidth="1.3" /></div><h3>Subcategories coming soon</h3><p>Will be built after the products list.</p></div></div>
+
+<div class="page-header">
+    <div>
+        <h1 class="h-page">Subcategories</h1>
+        <p class="lead">Nested groupings under each category.</p>
+    </div>
+    <div class="page-actions">
+        <button class="btn btn-primary" @onclick="OpenCreate">
+            <Icon Name="plus" /> New subcategory
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="toolbar" style="flex-wrap:wrap;gap:10px">
+        @if (_categories.Count > 0)
+        {
+            <div class="chips">
+                <button class="chip @(_catFilter == 0 ? "on" : "")" @onclick='() => SetCatFilter(0)'>
+                    All <span class="count">@_all.Count</span>
+                </button>
+                @foreach (var cat in _categories)
+                {
+                    var cid = cat.Id;
+                    <button class="chip @(_catFilter == cid ? "on" : "")" @onclick="() => SetCatFilter(cid)">
+                        @cat.Name <span class="count">@_all.Count(s => s.CategoryId == cid)</span>
+                    </button>
+                }
+            </div>
+        }
+        <span class="spacer"></span>
+        <div class="field" style="max-width:280px">
+            <Icon Name="search" />
+            <input placeholder="Search subcategories…" value="@_query" @oninput="OnSearch" />
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="list-header" style="grid-template-columns:1fr 1fr 1fr 0.6fr 0.6fr auto">
+            <span>Name</span><span>Category</span><span>Slug</span><span>Status</span><span>Featured</span><span></span>
+        </div>
+        @for (int i = 0; i < 5; i++)
+        {
+            <div class="cat-row" style="grid-template-columns:1fr 1fr 1fr 0.6fr 0.6fr auto">
+                <div class="skel" style="height:13px;width:65%"></div>
+                <div class="skel" style="height:11px;width:55%"></div>
+                <div class="skel" style="height:11px;width:60%"></div>
+                <div class="skel" style="height:20px;width:55px;border-radius:999px"></div>
+                <div class="skel" style="height:20px;width:55px;border-radius:999px"></div>
+                <div></div>
+            </div>
+        }
+    }
+    else if (_error is not null)
+    {
+        <div class="state">
+            <div class="state-art"><Icon Name="alert" Size="28" StrokeWidth="1.3" /></div>
+            <h3>Could not load subcategories</h3>
+            <p>@_error</p>
+            <div class="state-actions">
+                <button class="btn btn-secondary" @onclick="Load"><Icon Name="refresh" /> Retry</button>
+            </div>
+        </div>
+    }
+    else if (_filtered.Count == 0 && _all.Count > 0)
+    {
+        <div class="state">
+            <div class="state-art"><Icon Name="search" Size="28" StrokeWidth="1.3" /></div>
+            <h3>No matches</h3>
+            <p>Try a different filter or search term.</p>
+        </div>
+    }
+    else if (_all.Count == 0)
+    {
+        <div class="state">
+            <div class="state-art"><Icon Name="layers" Size="28" StrokeWidth="1.3" /></div>
+            <h3>No subcategories yet</h3>
+            <p>Add subcategories to give products more specific placement.</p>
+            <div class="state-actions">
+                <button class="btn btn-primary" @onclick="OpenCreate"><Icon Name="plus" /> New subcategory</button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="list-header" style="grid-template-columns:1fr 1fr 1fr 0.6fr 0.6fr auto">
+            <span>Name</span><span>Category</span><span>Slug</span><span>Status</span><span>Featured</span><span></span>
+        </div>
+        @foreach (var s in _filtered)
+        {
+            var sid = s.Id;
+            var catName = _categories.FirstOrDefault(c => c.Id == s.CategoryId)?.Name ?? $"#{s.CategoryId}";
+            <div class="cat-row" style="grid-template-columns:1fr 1fr 1fr 0.6fr 0.6fr auto">
+                <div>
+                    <div style="font-weight:600;font-size:14px">@s.Name</div>
+                    @if (!string.IsNullOrEmpty(s.PrintName))
+                    {
+                        <div style="font-size:12px;color:var(--ink-500)">@s.PrintName</div>
+                    }
+                </div>
+                <div style="font-size:13px;color:var(--ink-500)">@catName</div>
+                <div class="mono" style="font-size:12.5px;color:var(--ink-500)">@s.Slug</div>
+                <div>
+                    <span class="badge @(s.IsActive ? "live" : "draft")">
+                        <span class="dot"></span> @(s.IsActive ? "Active" : "Inactive")
+                    </span>
+                </div>
+                <div>
+                    @if (s.IsFeatured)
+                    {
+                        <span class="badge featured"><Icon Name="star" Size="10" /> Featured</span>
+                    }
+                    else
+                    {
+                        <span style="font-size:12px;color:var(--ink-400)">—</span>
+                    }
+                </div>
+                <div class="row-actions">
+                    <button class="btn btn-icon btn-ghost" title="Edit" @onclick="() => OpenEdit(sid)">
+                        <Icon Name="edit" />
+                    </button>
+                    <button class="btn btn-icon btn-ghost" title="Delete"
+                            style="color:var(--danger)"
+                            @onclick="() => ConfirmDelete(sid)">
+                        <Icon Name="trash" />
+                    </button>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@if (_showForm)
+{
+    <div class="overlay" @onclick="CloseForm">
+        <div class="modal" @onclick:stopPropagation>
+            <div class="modal-head">
+                <h2 class="h-section">@(_editId == 0 ? "New subcategory" : "Edit subcategory")</h2>
+                <button class="btn btn-icon btn-ghost" @onclick="CloseForm"><Icon Name="x" /></button>
+            </div>
+            <div class="modal-body">
+                <div class="field-block">
+                    <label class="lbl">Parent category <span style="color:var(--danger)">*</span></label>
+                    <select class="input" @bind="_fCategoryId">
+                        <option value="0">Select category…</option>
+                        @foreach (var cat in _categories)
+                        {
+                            <option value="@cat.Id">@cat.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="grid-2">
+                    <div class="field-block">
+                        <label class="lbl">Name <span style="color:var(--danger)">*</span></label>
+                        <div class="field">
+                            <input value="@_fName" @oninput="OnNameInput" placeholder="e.g. Watercolour" />
+                        </div>
+                    </div>
+                    <div class="field-block">
+                        <label class="lbl">Print name</label>
+                        <div class="field">
+                            <input @bind="_fPrintName" placeholder="Display name" />
+                        </div>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="field-block">
+                        <label class="lbl">Name code</label>
+                        <div class="field">
+                            <input @bind="_fNameCode" placeholder="e.g. SUBCAT_WC" />
+                        </div>
+                    </div>
+                    <div class="field-block">
+                        <label class="lbl">Slug</label>
+                        <div class="field">
+                            <input @bind="_fSlug" placeholder="e.g. watercolour" />
+                        </div>
+                    </div>
+                </div>
+                <div class="field-block">
+                    <label class="lbl">Description</label>
+                    <textarea class="input" @bind="_fDescription" rows="2" placeholder="Optional description…"></textarea>
+                </div>
+                <div class="field-block">
+                    <label class="lbl">Cover image URL</label>
+                    <div class="field">
+                        <input @bind="_fCoverImageUrl" placeholder="https://…" />
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <label class="toggle @(_fIsActive ? "on" : "")" @onclick="() => _fIsActive = !_fIsActive">
+                        <div class="toggle-track"></div>
+                        <span class="toggle-text">Active</span>
+                    </label>
+                    <label class="toggle @(_fIsFeatured ? "on" : "")" @onclick="() => _fIsFeatured = !_fIsFeatured">
+                        <div class="toggle-track"></div>
+                        <span class="toggle-text">Featured</span>
+                    </label>
+                </div>
+                @if (_formError is not null)
+                {
+                    <div style="font-size:13px;color:var(--danger);display:flex;gap:6px;align-items:center">
+                        <Icon Name="alert" Size="13" /> @_formError
+                    </div>
+                }
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-secondary" @onclick="CloseForm">Cancel</button>
+                <span class="spacer"></span>
+                <button class="btn btn-primary" @onclick="Save" disabled="@_saving">
+                    @(_saving ? "Saving…" : "Save subcategory")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_deleteId != 0)
+{
+    <DeleteConfirmModal EntityName="subcategory"
+        BodyText="This will permanently remove the subcategory."
+        Error="@_deleteError" Deleting="@_deleting"
+        OnConfirm="DeleteConfirmed"
+        OnCancel="() => _deleteId = 0" />
+}
+
+<Toast Message="@_toast" />
+
+<style>
+    .cat-row {
+        display: grid;
+        align-items: center;
+        gap: 18px;
+        padding: 12px 18px;
+        border-bottom: 1px solid var(--line-soft);
+    }
+    .cat-row:last-child { border-bottom: 0; }
+    .cat-row:hover { background: var(--paper-100); }
+    .cat-row .row-actions { display: flex; gap: 2px; opacity: 0.6; transition: opacity 0.12s; }
+    .cat-row:hover .row-actions { opacity: 1; }
+</style>
+
+@code {
+    private List<ProductSubCategoryLookupDto> _all = new();
+    private List<ProductSubCategoryLookupDto> _filtered = new();
+    private List<ProductCategoryLookupDto> _categories = new();
+    private int _catFilter;
+    private string _query = "";
+    private bool _loading = true;
+    private string? _error;
+
+    private bool _showForm;
+    private int _editId;
+    private int _fCategoryId;
+    private string _fName = "", _fPrintName = "", _fNameCode = "", _fSlug = "", _fDescription = "", _fCoverImageUrl = "";
+    private bool _fIsActive = true, _fIsFeatured;
+    private string? _formError;
+    private bool _saving;
+
+    private int _deleteId;
+    private string? _deleteError;
+    private bool _deleting;
+    private string? _toast;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        _loading = true; _error = null;
+        try
+        {
+            var catResp  = await Http.GetFromJsonAsync<ServiceResponse<IReadOnlyList<ProductCategoryLookupDto>>>(
+                "api/admin/product-options/categories");
+            var subResp  = await Http.GetFromJsonAsync<ServiceResponse<IReadOnlyList<ProductSubCategoryLookupDto>>>(
+                "api/admin/product-options/subcategories");
+
+            if (catResp?.Success == true && catResp.Data is not null)
+                _categories = catResp.Data.ToList();
+            if (subResp?.Success == true && subResp.Data is not null)
+                _all = subResp.Data.ToList();
+            else
+                _error = subResp?.Message ?? "Unknown error";
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        ApplyFilter();
+        _loading = false;
+    }
+
+    private void SetCatFilter(int id) { _catFilter = id; ApplyFilter(); }
+    private void OnSearch(ChangeEventArgs e) { _query = e.Value?.ToString() ?? ""; ApplyFilter(); }
+
+    private void ApplyFilter()
+    {
+        var list = _all.AsEnumerable();
+        if (_catFilter != 0) list = list.Where(s => s.CategoryId == _catFilter);
+        var q = _query.Trim().ToLowerInvariant();
+        if (!string.IsNullOrEmpty(q))
+            list = list.Where(s => s.Name.ToLowerInvariant().Contains(q) || s.Slug.ToLowerInvariant().Contains(q));
+        _filtered = list.ToList();
+    }
+
+    private void OpenCreate()
+    {
+        _editId = 0; _fCategoryId = _catFilter != 0 ? _catFilter : 0; _fName = ""; _fPrintName = "";
+        _fNameCode = ""; _fSlug = ""; _fDescription = ""; _fCoverImageUrl = "";
+        _fIsActive = true; _fIsFeatured = false; _formError = null; _showForm = true;
+    }
+
+    private void OpenEdit(int id)
+    {
+        var s = _all.First(x => x.Id == id);
+        _editId = id; _fCategoryId = s.CategoryId; _fName = s.Name; _fPrintName = s.PrintName ?? "";
+        _fNameCode = s.NameCode ?? ""; _fSlug = s.Slug; _fDescription = s.Description ?? "";
+        _fCoverImageUrl = s.CoverImageUrl ?? ""; _fIsActive = s.IsActive; _fIsFeatured = s.IsFeatured;
+        _formError = null; _showForm = true;
+    }
+
+    private void CloseForm() => _showForm = false;
+
+    private void OnNameInput(ChangeEventArgs e)
+    {
+        _fName = e.Value?.ToString() ?? "";
+        if (_editId == 0) _fSlug = SlugHelper.Slugify(_fName);
+    }
+
+    private async Task Save()
+    {
+        if (_fCategoryId == 0) { _formError = "Parent category is required."; return; }
+        if (string.IsNullOrWhiteSpace(_fName)) { _formError = "Name is required."; return; }
+        if (string.IsNullOrWhiteSpace(_fSlug)) { _formError = "Slug is required."; return; }
+        _saving = true; _formError = null;
+        try
+        {
+            var body = new { categoryId = _fCategoryId, nameCode = _fNameCode, name = _fName,
+                             printName = _fPrintName, slug = _fSlug, description = _fDescription,
+                             coverImageUrl = _fCoverImageUrl, isActive = _fIsActive, isFeatured = _fIsFeatured };
+            var opts = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            HttpResponseMessage resp = _editId == 0
+                ? await Http.PostAsJsonAsync("api/admin/product-options/subcategories", body)
+                : await Http.PutAsJsonAsync($"api/admin/product-options/subcategories/{_editId}", body);
+
+            var result = await resp.Content.ReadFromJsonAsync<ServiceResponse<ProductSubCategoryLookupDto>>(opts);
+            if (result?.Success == true)
+            {
+                _showForm = false; await Load();
+                ShowToast(_editId == 0 ? "Subcategory created." : "Subcategory updated.");
+            }
+            else { _formError = result?.Message ?? "Save failed."; }
+        }
+        catch (Exception ex) { _formError = ex.Message; }
+        _saving = false;
+    }
+
+    private void ConfirmDelete(int id) { _deleteId = id; _deleteError = null; }
+
+    private async Task DeleteConfirmed()
+    {
+        _deleting = true; _deleteError = null;
+        try
+        {
+            var resp = await Http.DeleteAsync($"api/admin/product-options/subcategories/{_deleteId}");
+            var result = await resp.Content.ReadFromJsonAsync<ServiceResponse<bool>>(
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (result?.Success == true) { _deleteId = 0; await Load(); ShowToast("Subcategory deleted."); }
+            else _deleteError = result?.Message ?? "Delete failed.";
+        }
+        catch (Exception ex) { _deleteError = ex.Message; }
+        _deleting = false;
+    }
+
+    private async void ShowToast(string msg)
+    {
+        _toast = msg; StateHasChanged();
+        await Task.Delay(3000);
+        _toast = null; StateHasChanged();
+    }
+
+}

@@ -163,8 +163,8 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 @UpdatedAt,
                 @UpdatedBy,
                 @IsUsingStandardVariants
-            ),
-            RETURNING (Id);
+            )
+            RETURNING Id;
             """;
 
         using var connection = dapperContext.CreateConnection();
@@ -421,8 +421,8 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 @IsFeatured,
                 @Slug,
                 @CoverImageUrl
-            ),
-            RETURNING(
+            )
+            RETURNING
                 Id,
                 NameCode,
                 Name,
@@ -431,7 +431,7 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 Description,
                 CoverImageUrl,
                 IsActive,
-                IsFeatured);
+                IsFeatured;
             """;
 
         using var connection = dapperContext.CreateConnection();
@@ -464,8 +464,8 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 @IsFeatured,
                 @Slug,
                 @CoverImageUrl
-            ),
-            RETURNING(
+            )
+            RETURNING
                 Id,
                 CategoryId,
                 NameCode,
@@ -475,7 +475,7 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 Description,
                 CoverImageUrl,
                 IsActive,
-                IsFeatured);
+                IsFeatured;
             """;
 
         using var connection = dapperContext.CreateConnection();
@@ -593,12 +593,12 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 @Slug,
                 @Color,
                 CURRENT_TIMESTAMP
-            ),
-            RETURNING(
+            )
+            RETURNING
                 Id,
                 Name,
                 Slug,
-                Color);
+                Color;
             """;
 
         using var connection = dapperContext.CreateConnection();
@@ -993,8 +993,8 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
 
         const string insertVariantSql = """
             INSERT INTO ProductVariants (ProductId, Label, FulfillmentType, Sku, WeightGrams, StockQuantity, AbsolutePrice)
-            VALUES (@ProductId, @Label, @FulfillmentType, @Sku, @WeightGrams, @StockQuantity, @AbsolutePrice),
-            RETURNING (Id);
+            VALUES (@ProductId, @Label, @FulfillmentType, @Sku, @WeightGrams, @StockQuantity, @AbsolutePrice)
+            RETURNING Id;
             """;
 
         const string insertOptionSql = """

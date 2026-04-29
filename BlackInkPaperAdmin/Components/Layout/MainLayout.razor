@@ -1,55 +1,89 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Nav
+@inject IAuthService AuthService
+@inject TokenStore Store
+@inject IJSRuntime JS
 @implements IDisposable
 
-<div class="shell" data-density="@_density">
-    <NavMenu />
-    <div>
-        <header class="topbar">
-            <div class="crumbs">
-                @{
-                    var crumbs = GetCrumbs();
-                    for (var i = 0; i < crumbs.Length; i++)
-                    {
-                        if (i == crumbs.Length - 1)
+@if (_ready)
+{
+    <div class="shell" data-density="@_density">
+        <NavMenu />
+        <div>
+            <header class="topbar">
+                <div class="crumbs">
+                    @{
+                        var crumbs = GetCrumbs();
+                        for (var i = 0; i < crumbs.Length; i++)
                         {
-                            <span class="here">@crumbs[i]</span>
-                        }
-                        else
-                        {
-                            <span>@crumbs[i]</span>
-                            <span class="sep">›</span>
+                            if (i == crumbs.Length - 1)
+                            {
+                                <span class="here">@crumbs[i]</span>
+                            }
+                            else
+                            {
+                                <span>@crumbs[i]</span>
+                                <span class="sep">›</span>
+                            }
                         }
                     }
-                }
-            </div>
-            <div class="topbar-spacer"></div>
-            <div class="topbar-actions">
-                <div class="density-toggle" title="Density">
-                    <button class="@(_density == "comfortable" ? "on" : "")" @onclick='() => SetDensity("comfortable")'>
-                        <Icon Name="rows" Size="12" /> Comfy
-                    </button>
-                    <button class="@(_density == "compact" ? "on" : "")" @onclick='() => SetDensity("compact")'>
-                        <Icon Name="grid3" Size="12" /> Compact
+                </div>
+                <div class="topbar-spacer"></div>
+                <div class="topbar-actions">
+                    <div class="density-toggle" title="Density">
+                        <button class="@(_density == "comfortable" ? "on" : "")" @onclick='() => SetDensity("comfortable")'>
+                            <Icon Name="rows" Size="12" /> Comfy
+                        </button>
+                        <button class="@(_density == "compact" ? "on" : "")" @onclick='() => SetDensity("compact")'>
+                            <Icon Name="grid3" Size="12" /> Compact
+                        </button>
+                    </div>
+                    <button class="btn btn-icon btn-ghost" title="Notifications">
+                        <Icon Name="bell" />
                     </button>
                 </div>
-                <button class="btn btn-icon btn-ghost" title="Notifications">
-                    <Icon Name="bell" />
-                </button>
-            </div>
-        </header>
-        <main class="content">
-            @Body
-        </main>
+            </header>
+            <main class="content">
+                @Body
+            </main>
+        </div>
     </div>
-</div>
+}
 
 @code {
     private string _density = "comfortable";
+    private bool _ready;
 
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        if (Store.Token is not null)
+        {
+            _ready = true;
+            StateHasChanged();
+            return;
+        }
+
+        string? saved = null;
+        try { saved = await JS.InvokeAsync<string?>("localStorage.getItem", "bip_admin_token"); } catch { }
+
+        if (!string.IsNullOrEmpty(saved) && await AuthService.InitializeAsync(saved))
+        {
+            _ready = true;
+            StateHasChanged();
+        }
+        else
+        {
+            if (!string.IsNullOrEmpty(saved))
+                try { await JS.InvokeVoidAsync("localStorage.removeItem", "bip_admin_token"); } catch { }
+            Nav.NavigateTo("/login");
+        }
     }
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
@@ -65,7 +99,7 @@
             "" or "/"                   => ["Workspace", "Dashboard"],
             "/products"                 => ["Workspace", "Products"],
             "/products/create"          => ["Workspace", "Products", "New product"],
-            var p when p.StartsWith("/products/edit") => ["Workspace", "Products", "Edit product"],
+            var p when p.StartsWith("/products/") && p.EndsWith("/edit") => ["Workspace", "Products", "Edit product"],
             "/catalog/categories"       => ["Catalog", "Categories"],
             "/catalog/subcategories"    => ["Catalog", "Subcategories"],
             "/catalog/tags"             => ["Catalog", "Tags"],

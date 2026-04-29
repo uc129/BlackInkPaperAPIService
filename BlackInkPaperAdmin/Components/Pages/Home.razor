@@ -1,63 +1,59 @@
 @page "/"
+@inject HttpClient Http
+@inject IAuthService AuthService
 <PageTitle>Dashboard — Black Ink Paper Admin</PageTitle>
 
 <div class="page-header">
     <div>
-        <h1 class="h-page">Good morning, Utkarsh</h1>
-        <p class="lead">Here's what's happening in your catalog this week.</p>
+        <h1 class="h-page">Good @Greeting, @_firstName</h1>
+        <p class="lead">Here's what's happening in your catalog.</p>
     </div>
     <div class="page-actions">
-        <button class="btn btn-secondary"><Icon Name="download" /> Export</button>
         <a href="/products/create" class="btn btn-primary"><Icon Name="plus" /> New product</a>
     </div>
 </div>
 
-<!-- Stat cards — numbers + week-on-week delta -->
-<div class="stat-grid">
-    <div class="stat">
-        <div class="stat-label">Total products</div>
-        <div class="stat-value">86</div>
-        <div class="stat-meta">
-            <span class="stat-delta up">
-                <Icon Name="arrowUp" Size="11" StrokeWidth="2.4" /> +4
-            </span>
-            <span class="muted">vs. last week</span>
+@if (_loading)
+{
+    <div class="stat-grid">
+        @for (int i = 0; i < 4; i++)
+        {
+            <div class="stat">
+                <div class="skel" style="height:11px;width:60%"></div>
+                <div class="skel" style="height:34px;width:40%;margin-top:10px"></div>
+                <div class="skel" style="height:10px;width:50%;margin-top:10px"></div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="stat-grid">
+        <div class="stat">
+            <div class="stat-label">Total products</div>
+            <div class="stat-value">@_total</div>
+            <div class="stat-meta"><span class="muted">in catalog</span></div>
+        </div>
+        <div class="stat">
+            <div class="stat-label">Available</div>
+            <div class="stat-value">@_available</div>
+            <div class="stat-meta"><span class="muted">live on storefront</span></div>
+        </div>
+        <div class="stat">
+            <div class="stat-label">Drafts</div>
+            <div class="stat-value">@_drafts</div>
+            <div class="stat-meta"><span class="muted">not yet published</span></div>
+        </div>
+        <div class="stat">
+            <div class="stat-label">Featured</div>
+            <div class="stat-value">@_featured</div>
+            <div class="stat-meta"><span class="muted">highlighted on store</span></div>
         </div>
     </div>
-    <div class="stat">
-        <div class="stat-label">Available</div>
-        <div class="stat-value">71</div>
-        <div class="stat-meta">
-            <span class="stat-delta up">
-                <Icon Name="arrowUp" Size="11" StrokeWidth="2.4" /> +2
-            </span>
-            <span class="muted">vs. last week</span>
-        </div>
-    </div>
-    <div class="stat">
-        <div class="stat-label">Drafts</div>
-        <div class="stat-value">15</div>
-        <div class="stat-meta">
-            <span class="stat-delta down">
-                <Icon Name="arrowDown" Size="11" StrokeWidth="2.4" /> −1
-            </span>
-            <span class="muted">vs. last week</span>
-        </div>
-    </div>
-    <div class="stat">
-        <div class="stat-label">Featured</div>
-        <div class="stat-value">9</div>
-        <div class="stat-meta">
-            <span class="stat-delta flat">0</span>
-            <span class="muted">vs. last week</span>
-        </div>
-    </div>
-</div>
+}
 
-<!-- Bottom row: recent products + weekly chart -->
 <div class="grid-2 mt-4" style="grid-template-columns: 1.5fr 1fr">
 
-    <!-- Recent products -->
     <div class="card">
         <div class="card-pad" style="padding-bottom: 12px">
             <div class="row">
@@ -68,69 +64,132 @@
                 </a>
             </div>
         </div>
-        @foreach (var p in _recentProducts)
+        @if (_loading)
         {
-            <div class="card-row" style="padding: 10px 22px">
-                <div class="product-thumb" style="width:36px;height:36px;background:@p.Swatch;flex-shrink:0"></div>
-                <div style="flex:1;min-width:0">
-                    <div class="product-name" style="font-size:13.5px">@p.Name</div>
-                    <div class="product-meta">
-                        <span>@p.Artist</span>
-                        <span class="sep">·</span>
-                        <span class="mono">@p.Code</span>
+            @for (int i = 0; i < 4; i++)
+            {
+                <div class="card-row">
+                    <div class="skel" style="width:36px;height:36px;border-radius:8px;flex-shrink:0"></div>
+                    <div style="flex:1">
+                        <div class="skel" style="height:12px;width:55%"></div>
+                        <div class="skel" style="height:10px;width:35%;margin-top:5px"></div>
                     </div>
+                    <div class="skel" style="height:14px;width:60px"></div>
                 </div>
-                <span class="product-price tabular">@FmtINR(p.Price)</span>
-                <span class="badge @(p.Status == "live" ? "live" : "draft")">
-                    <span class="dot"></span> @p.Status
-                </span>
+            }
+        }
+        else if (_recent.Count == 0)
+        {
+            <div style="padding:24px;text-align:center;font-size:13px;color:var(--ink-500)">
+                No products yet. <a href="/products/create" class="link">Add your first.</a>
             </div>
+        }
+        else
+        {
+            @foreach (var p in _recent)
+            {
+                <div class="card-row" style="padding:10px 22px">
+                    <div class="product-thumb" style="width:36px;height:36px;flex-shrink:0">
+                        <Icon Name="image" Size="16" />
+                    </div>
+                    <div style="flex:1;min-width:0">
+                        <div class="product-name" style="font-size:13.5px">@p.Name</div>
+                        <div class="product-meta">
+                            <span class="mono">@p.ProductId</span>
+                        </div>
+                    </div>
+                    <span class="product-price tabular">@FmtINR(p.Pricing.FinalPrice)</span>
+                    <span class="badge @(p.Taxonomy.IsAvailable ? "live" : "draft")">
+                        <span class="dot"></span> @(p.Taxonomy.IsAvailable ? "live" : "draft")
+                    </span>
+                </div>
+            }
         }
     </div>
 
-    <!-- Weekly chart -->
     <div class="card card-pad">
-        <h2 class="h-section">This week</h2>
-        <p class="muted" style="font-size:13px;margin-top:4px">Sales, by day</p>
-        <div class="bar-mini mt-4" style="height:90px">
-            @foreach (var (val, idx) in _weeklyData.Select((v, i) => (v, i)))
-            {
-                <div class="b @(idx == _weeklyData.Length - 1 ? "" : "")"
-                     style="height:@(val)%;background:@(idx == _weeklyData.Length - 1 ? "var(--accent)" : "var(--accent-soft)")">
-                </div>
-            }
-        </div>
-        <div class="row mt-3" style="font-size:11px;color:var(--ink-400);justify-content:space-between">
-            @foreach (var day in new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" })
-            {
-                <span>@day</span>
-            }
-        </div>
-        <div class="divider"></div>
-        <div class="row" style="justify-content:space-between">
-            <div>
-                <div class="muted" style="font-size:12px">Revenue</div>
-                <div class="h-display" style="font-size:24px;margin-top:2px">@FmtINR(184200)</div>
+        <h2 class="h-section">Catalog health</h2>
+        <p class="muted" style="font-size:13px;margin-top:4px">Availability snapshot</p>
+        @if (_loading)
+        {
+            <div class="mt-4" style="display:flex;flex-direction:column;gap:12px">
+                @for (int i = 0; i < 4; i++)
+                {
+                    <div>
+                        <div class="skel" style="height:10px;width:80%;margin-bottom:6px"></div>
+                        <div class="skel" style="height:6px;width:100%;border-radius:999px"></div>
+                    </div>
+                }
             </div>
-            <div class="badge live"><span class="dot"></span> +18%</div>
-        </div>
+        }
+        else if (_total > 0)
+        {
+            <div class="mt-4" style="display:flex;flex-direction:column;gap:10px">
+                @StatBar("Available",    _available,  _total, "var(--ok)")
+                @StatBar("Drafts",       _drafts,     _total, "var(--warn)")
+                @StatBar("Featured",     _featured,   _total, "var(--accent)")
+                @StatBar("Out of stock", _outOfStock, _total, "var(--danger)")
+            </div>
+        }
+        else
+        {
+            <p class="muted" style="font-size:13px;margin-top:16px">No products yet.</p>
+        }
     </div>
 
 </div>
 
 @code {
-    private record ProductRow(string Name, string Artist, string Code, decimal Price, string Status, string Swatch);
+    private bool _loading = true;
+    private int _total, _available, _drafts, _featured, _outOfStock;
+    private List<ProductSummaryDto> _recent = new();
+    private string _firstName = "there";
 
-    private readonly ProductRow[] _recentProducts =
-    [
-        new("Hawa Mahal at Dawn",      "Aanya Mehta",   "HMD-018", 4800, "live",  "#1f1a16"),
-        new("Banyan, Folded",          "Mira Kulkarni", "BNF-002", 3200, "live",  "#3b322b"),
-        new("Saraswati, Sketch No. 4", "Ila Banerjee",  "SR4-007", 1800, "live",  "#2a241f"),
-        new("Varanasi Ghats, IV",      "Kabir Joshi",   "VRG-004", 5400, "live",  "#1c1814"),
-    ];
+    private static string Greeting =>
+        DateTime.Now.Hour < 12 ? "morning" : DateTime.Now.Hour < 17 ? "afternoon" : "evening";
 
-    private readonly int[] _weeklyData = [34, 22, 41, 28, 56, 70, 48];
+    protected override async Task OnInitializedAsync()
+    {
+        _firstName = AuthService.GetCurrentUser()?.Name.Split(' ')[0] ?? "there";
+        await LoadStats();
+    }
 
-    private static string FmtINR(decimal amount) =>
-        amount.ToString("C0", new System.Globalization.CultureInfo("en-IN"));
+    private async Task LoadStats()
+    {
+        _loading = true;
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<ServiceResponse<PagedResultDto<ProductSummaryDto>>>(
+                "api/admin/products?Page=1&PageSize=200");
+            if (resp?.Success == true && resp.Data is not null)
+            {
+                var all = resp.Data.Items.ToList();
+                _total      = resp.Data.TotalCount;
+                _available  = all.Count(p => p.Taxonomy.IsAvailable);
+                _drafts     = all.Count(p => !p.Taxonomy.IsAvailable);
+                _featured   = all.Count(p => p.Taxonomy.IsFeatured);
+                _outOfStock = all.Count(p => p.Stats.StockQuantity == 0);
+                _recent     = all.Take(4).ToList();
+            }
+        }
+        catch { }
+        _loading = false;
+    }
+
+    private static RenderFragment StatBar(string label, int value, int total, string color)
+    {
+        var pct = total > 0 ? Math.Round((double)value / total * 100, 1) : 0;
+        var html =
+            "<div style=\"display:flex;flex-direction:column;gap:4px\">" +
+            "<div style=\"display:flex;justify-content:space-between;font-size:12px\">" +
+            "<span style=\"color:var(--ink-500)\">" + label + "</span>" +
+            "<span style=\"font-variant-numeric:tabular-nums;font-weight:500\">" + value + "</span>" +
+            "</div>" +
+            "<div style=\"height:6px;background:var(--paper-200);border-radius:999px;overflow:hidden\">" +
+            "<div style=\"height:100%;width:" + pct + "%;background:" + color + ";border-radius:999px\"></div>" +
+            "</div></div>";
+        return __builder => __builder.AddMarkupContent(0, html);
+    }
+
+    private static string FmtINR(decimal amount) => CurrencyHelper.FmtINR(amount);
 }

@@ -66,9 +66,8 @@ public class ShippingAddressRepository(IDapperContext dapperContext) : IShipping
                 @IsDefault,
                 @CreatedAt,
                 @UpdatedAt
-            );
-
-            SELECT CAST(SCOPE_IDENTITY() AS int);
+            )
+            RETURNING Id;
             """;
 
         using var connection = dapperContext.CreateConnection();
