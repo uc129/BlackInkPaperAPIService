@@ -160,7 +160,7 @@ else
         try
         {
             var resp = await Http.GetFromJsonAsync<ServiceResponse<PagedResultDto<ProductSummaryDto>>>(
-                "api/admin/products?Page=1&PageSize=200");
+                "api/admin/products?Page=1&PageSize=100");
             if (resp?.Success == true && resp.Data is not null)
             {
                 var all = resp.Data.Items.ToList();

@@ -9,7 +9,7 @@
     </div>
 </div>
 
-<div class="card">
+<div class="card users-list">
     <div class="toolbar">
         <div class="chips">
             <button class="chip @(_roleFilter == "" ? "on" : "")" @onclick='() => SetRoleFilter("")'>
@@ -32,7 +32,7 @@
 
     @if (_loading)
     {
-        <div class="list-header" style="grid-template-columns:1.5fr 1.5fr 1fr auto">
+        <div class="list-header">
             <span>Name</span><span>Email</span><span>Roles</span><span></span>
         </div>
         @for (int i = 0; i < 6; i++)
@@ -73,7 +73,7 @@
     }
     else
     {
-        <div class="list-header" style="grid-template-columns:1.5fr 1.5fr 1fr auto">
+        <div class="list-header">
             <span>Name</span>
             <span>Email</span>
             <span>Roles</span>
@@ -83,9 +83,9 @@
         {
             var uid = u.Id;
             <div class="user-row">
-                <div style="font-weight:600;font-size:13.5px">@(string.IsNullOrEmpty(u.FullName) ? "—" : u.FullName)</div>
-                <div style="font-size:13px;color:var(--ink-500)">@u.Email</div>
-                <div style="display:flex;gap:5px;flex-wrap:wrap">
+                <div class="user-name">@(string.IsNullOrEmpty(u.FullName) ? "—" : u.FullName)</div>
+                <div class="user-email">@u.Email</div>
+                <div class="user-roles">
                     @foreach (var role in u.Roles)
                     {
                         <span class="badge @RoleCss(role)">@role</span>
@@ -123,20 +123,6 @@
 
 <Toast Message="@_toast" />
 
-<style>
-    .user-row {
-        display: grid;
-        grid-template-columns: 1.5fr 1.5fr 1fr auto;
-        align-items: center;
-        gap: 16px;
-        padding: 11px 18px;
-        border-bottom: 1px solid var(--line-soft);
-    }
-    .user-row:last-child { border-bottom: 0; }
-    .user-row:hover { background: var(--paper-100); }
-    .user-row .row-actions { display: flex; gap: 6px; opacity: 0.6; transition: opacity 0.12s; }
-    .user-row:hover .row-actions { opacity: 1; }
-</style>
 
 @code {
     private const string ArtistRole = "Artist";
@@ -159,7 +145,7 @@
         try
         {
             var resp = await Http.GetFromJsonAsync<ServiceResponse<PagedResultDto<UserSummaryDto>>>(
-                "api/admin/users?Page=1&PageSize=200");
+                "api/admin/users?Page=1&PageSize=100");
             if (resp?.Success == true && resp.Data is not null)
                 _all = resp.Data.Items.ToList();
             else

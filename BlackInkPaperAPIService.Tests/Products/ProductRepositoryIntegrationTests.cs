@@ -206,7 +206,7 @@ internal static class ProductRepositoryIntegrationTestHelper
             CreatedBy = "integration-test",
             UpdatedAt = now,
             UpdatedBy = "integration-test",
-            ArtSpecId = template.ArtSpecId,
+
             ArtSpecs = new ArtSpecifications
             {
                 PhysicalDimensions = new Dimensions

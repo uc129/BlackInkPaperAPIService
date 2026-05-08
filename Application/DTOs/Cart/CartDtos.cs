@@ -1,15 +1,18 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Application.DTOs.Cart;
 
 public record AddCartItemRequest(
-    int ProductDbId,
-    int Quantity,
+    [Required][Range(1, int.MaxValue)] int ProductDbId,
+    [Required][Range(1, 999)] int Quantity,
     List<AddCartItemSelectedVariantRequest>? SelectedVariants);
 
 public record AddCartItemSelectedVariantRequest(
     int ProductVariantId,
     int ProductVariantOptionId);
 
-public record UpdateCartItemQuantityRequest(int Quantity);
+public record UpdateCartItemQuantityRequest(
+    [Required][Range(1, 999)] int Quantity);
 
 public record CartResponseDto(
     int Id,

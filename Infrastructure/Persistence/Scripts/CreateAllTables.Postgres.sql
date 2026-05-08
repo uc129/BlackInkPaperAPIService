@@ -191,7 +191,10 @@ CREATE TABLE IF NOT EXISTS ProductImages (
     AspectRatio DOUBLE PRECISION NOT NULL,
     Width INTEGER NOT NULL,
     Height INTEGER NOT NULL,
-    PlaceholderUrl VARCHAR(2048)
+    PlaceholderUrl VARCHAR(2048),
+    Format VARCHAR(50),
+    Dpi INTEGER,
+    FileSize BIGINT
 );
 
 CREATE TABLE IF NOT EXISTS Map_ProductTags (
@@ -208,7 +211,8 @@ CREATE TABLE IF NOT EXISTS ProductVariants (
     Sku VARCHAR(100) NOT NULL,
     WeightGrams DECIMAL(18,2),
     StockQuantity INTEGER,
-    AbsolutePrice DECIMAL(18,2)
+    AbsolutePrice DECIMAL(18,2),
+    ProductImageId INTEGER REFERENCES ProductImages(Id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS ProductVariantOptions (

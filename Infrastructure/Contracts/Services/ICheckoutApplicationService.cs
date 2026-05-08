@@ -1,4 +1,5 @@
 using Application.DTOs.Checkout;
+using Application.DTOs.Products;
 using Common.YourProject.Models;
 
 namespace Infrastructure.Contracts.Services;
@@ -14,6 +15,7 @@ public interface ICheckoutApplicationService
     Task<ServiceResponse<OrderDto>> VerifyPaymentAsync(string userId, VerifyRazorpayPaymentRequest request, CancellationToken cancellationToken = default);
     Task<ServiceResponse<bool>> HandleRazorpayWebhookAsync(string rawBody, string? signature, string? eventId, CancellationToken cancellationToken = default);
     Task<ServiceResponse<PlaceOrderResponseDto>> PlaceOrderAsync(string userId, PlaceOrderRequest request, CancellationToken cancellationToken = default);
-    Task<ServiceResponse<IReadOnlyList<OrderDto>>> GetOrdersAsync(string userId, CancellationToken cancellationToken = default);
+    Task<ServiceResponse<PagedResultDto<OrderDto>>> GetOrdersAsync(string userId, int page, int pageSize, CancellationToken cancellationToken = default);
     Task<ServiceResponse<OrderDto>> GetOrderByIdAsync(string userId, int orderId, CancellationToken cancellationToken = default);
+    Task<ServiceResponse<bool>> CancelOrderAsync(string userId, int orderId, CancellationToken cancellationToken = default);
 }

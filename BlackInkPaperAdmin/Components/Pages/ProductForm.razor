@@ -85,7 +85,7 @@ else
             <PricingSection   Vm="_vm" OnChanged="MarkDirty" />
             <ArtSpecsSection  Vm="_vm" OnChanged="MarkDirty" />
             <ImagesSection    Vm="_vm" OnChanged="MarkDirty" />
-            <VariantsSection  Vm="_vm" OnChanged="MarkDirty" />
+            <VariantsSection  Vm="_vm" Images="_vm.Images" OnChanged="MarkDirty" />
             <TaxonomySection  Vm="_vm" IsEdit="IsEdit"
                               Artists="_artists" Categories="_categories"
                               Subcategories="_subcategories" Tags="_tags"
@@ -252,11 +252,30 @@ else
         _vm.IsFeatured     = p.Taxonomy.IsFeatured;
         _vm.UseStdVariants = p.IsUsingStandardVariants;
         _vm.SelectedTagIds = p.Tags.Select(t => t.Id).ToList();
+        _vm.Images = p.Images.Select(img => new ImageFormModel
+        {
+            Id           = img.Id,
+            TempKey      = img.Id.ToString(),
+            PublicId     = img.PublicId,
+            BaseUrl      = img.BaseUrl,
+            AltText      = img.AltText,
+            IsPrimary    = img.IsPrimary,
+            DisplayOrder = img.DisplayOrder,
+            AspectRatio  = img.AspectRatio,
+            Width        = img.Width,
+            Height       = img.Height,
+            Format       = img.Format,
+            Dpi          = img.Dpi,
+            FileSize     = img.FileSize,
+            PlaceholderUrl = img.PlaceholderUrl,
+        }).ToList();
+
         _vm.Variants = p.Variants.Select(v => new VariantGroupModel
         {
             Label       = v.Label,
             Sku         = v.Sku,
             FulfillType = v.FulfillmentType,
+            ImageId     = v.ProductImageId,
             Options     = v.Options.Select(o => new VariantOptionModel
             {
                 Value    = o.Value,
@@ -336,7 +355,7 @@ else
                     Media:                   new(_vm.CoverUrl, _vm.HeaderUrl),
                     StockQuantity:           _vm.Stock,
                     TagIds:                  _vm.SelectedTagIds,
-                    Images:                  null,
+                    Images:                  BuildUpdateImages(),
                     Variants:                BuildUpdateVariants());
                 httpResp = await Http.PutAsJsonAsync($"api/admin/products/{Id}", req);
             }
@@ -358,7 +377,7 @@ else
                     Media:                   new(_vm.CoverUrl, _vm.HeaderUrl),
                     StockQuantity:           _vm.Stock,
                     TagIds:                  _vm.SelectedTagIds,
-                    Images:                  null,
+                    Images:                  BuildCreateImages(),
                     Variants:                BuildCreateVariants());
                 httpResp = await Http.PostAsJsonAsync("api/admin/products", req);
             }
@@ -473,6 +492,7 @@ else
             WeightGrams:     null,
             StockQuantity:   null,
             AbsolutePrice:   null,
+            ProductImageId:  null,   // images have no DB IDs yet at create time
             Options:         v.Options.Select(o => new CreateProductVariantOptionDto(
                 Value: o.Value, PriceModifier: o.PriceMod,
                 AbsolutePrice: o.AbsPrice, StockQuantity: o.Stock)).ToList()
@@ -487,10 +507,42 @@ else
             WeightGrams:     null,
             StockQuantity:   null,
             AbsolutePrice:   null,
+            ProductImageId:  v.ImageId,
             Options:         v.Options.Select(o => new UpdateProductVariantOptionDto(
                 Id: null, Value: o.Value, PriceModifier: o.PriceMod,
                 AbsolutePrice: o.AbsPrice, StockQuantity: o.Stock)).ToList()
         )).ToList();
+
+    private List<CreateProductImageDto> BuildCreateImages() =>
+        _vm.Images.Select((img, i) => new CreateProductImageDto(
+            AltText:         img.AltText,
+            IsPrimary:       img.IsPrimary,
+            DisplayOrder:    i,
+            PublicId:        img.PublicId,
+            BaseUrl:         img.BaseUrl,
+            AspectRatio:     img.AspectRatio,
+            Width:           img.Width,
+            Height:          img.Height,
+            PlaceholderUrl:  img.PlaceholderUrl,
+            Format:          img.Format,
+            Dpi:             img.Dpi,
+            FileSize:        img.FileSize)).ToList();
+
+    private List<UpdateProductImageDto> BuildUpdateImages() =>
+        _vm.Images.Select((img, i) => new UpdateProductImageDto(
+            Id:              img.Id,
+            AltText:         img.AltText,
+            IsPrimary:       img.IsPrimary,
+            DisplayOrder:    i,
+            PublicId:        img.PublicId,
+            BaseUrl:         img.BaseUrl,
+            AspectRatio:     img.AspectRatio,
+            Width:           img.Width,
+            Height:          img.Height,
+            PlaceholderUrl:  img.PlaceholderUrl,
+            Format:          img.Format,
+            Dpi:             img.Dpi,
+            FileSize:        img.FileSize)).ToList();
 
     private static string? Emp(string s) => string.IsNullOrWhiteSpace(s) ? null : s;
 

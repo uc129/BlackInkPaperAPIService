@@ -28,8 +28,11 @@ public class AdminOrderService(IOrderRepository orderRepository) : IAdminOrderSe
     {
         try
         {
+            var page = Math.Max(request.Page, 1);
+            var pageSize = Math.Clamp(request.PageSize, 1, 100);
+
             var (orders, total) = await orderRepository.GetAllAsync(
-                request.Page, request.PageSize,
+                page, pageSize,
                 request.Status, request.UserId,
                 request.DateFrom, request.DateTo, ct);
 
@@ -48,7 +51,7 @@ public class AdminOrderService(IOrderRepository orderRepository) : IAdminOrderSe
                 o.CustomerEmail ?? string.Empty)).ToList();
 
             return ServiceResponse<PagedResultDto<OrderSummaryDto>>.Ok(
-                new PagedResultDto<OrderSummaryDto>(items, request.Page, request.PageSize, total));
+                new PagedResultDto<OrderSummaryDto>(items, page, pageSize, total));
         }
         catch (Exception ex)
         {

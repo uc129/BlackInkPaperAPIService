@@ -17,7 +17,6 @@ internal static class ProductTestData
             ArtistId: 10,
             CategoryId: 1,
             SubCategoryId: 2,
-            ArtSpecId: 3,
             ArtSpecs: new ArtSpecificationsDto(
                 PhysicalDimensions: new DimensionsDto(20, 30, "cm"),
                 WeightGrams: 200,
@@ -54,22 +53,28 @@ internal static class ProductTestData
                     AspectRatio: 1.5,
                     Width: 1200,
                     Height: 800,
-                    PlaceholderUrl: null)
+                    PlaceholderUrl: null,
+                    Format: null,
+                    Dpi: null,
+                    FileSize: null)
             ],
             Variants:
             [
                 new CreateProductVariantDto(
                     Label: "Size",
+                    FulfillmentType: (int)ProductFulfillmentType.physical,
+                    Sku: "A4-SUNSET",
+                    WeightGrams: 120,
+                    StockQuantity: null,
+                    AbsolutePrice: null,
+                    ProductImageId: null,
                     Options:
                     [
                         new CreateProductVariantOptionDto(
                             Value: "A4",
                             PriceModifier: 0,
                             AbsolutePrice: null,
-                            StockQuantity: 2,
-                            FulfillmentType: (int)ProductFulfillmentTypes.physical,
-                            Sku: "A4-SUNSET",
-                            WeightGrams: 120)
+                            StockQuantity: 2)
                     ])
             ]);
 
@@ -83,7 +88,6 @@ internal static class ProductTestData
             Slug: slug,
             CategoryId: 1,
             SubCategoryId: 2,
-            ArtSpecId: 3,
             ArtSpecs: new ArtSpecificationsDto(
                 PhysicalDimensions: new DimensionsDto(24, 36, "inch"),
                 WeightGrams: 300,
@@ -121,13 +125,22 @@ internal static class ProductTestData
                     AspectRatio: 1.2,
                     Width: 1000,
                     Height: 833,
-                    PlaceholderUrl: null)
+                    PlaceholderUrl: null,
+                    Format: null,
+                    Dpi: null,
+                    FileSize: null)
             ],
             Variants:
             [
                 new UpdateProductVariantDto(
                     Id: 20,
                     Label: "Format",
+                    FulfillmentType: (int)ProductFulfillmentType.digital,
+                    Sku: "DIGI-SUNSET",
+                    WeightGrams: null,
+                    StockQuantity: null,
+                    AbsolutePrice: null,
+                    ProductImageId: null,
                     Options:
                     [
                         new UpdateProductVariantOptionDto(
@@ -135,10 +148,7 @@ internal static class ProductTestData
                             Value: "Digital",
                             PriceModifier: null,
                             AbsolutePrice: 100,
-                            StockQuantity: null,
-                            FulfillmentType: (int)ProductFulfillmentTypes.digital,
-                            Sku: "DIGI-SUNSET",
-                            WeightGrams: null)
+                            StockQuantity: null)
                     ])
             ]);
 
@@ -164,7 +174,6 @@ internal static class ProductTestData
             SubCategoryId = 2,
             IsFeatured = true,
             IsAvailable = true,
-            ArtSpecId = 3,
             IsUsingStandardVariants = false,
             CoverImageUrl = "https://cdn.example.com/cover.jpg",
             HeaderImageUrl = "https://cdn.example.com/header.jpg",
@@ -202,6 +211,9 @@ internal static class ProductTestData
                     Id = 20,
                     ProductId = id,
                     Label = "Size",
+                    FulfillmentType = ProductFulfillmentType.physical,
+                    Sku = "A4-SUNSET",
+                    WeightGrams = 120,
                     Options =
                     [
                         new ProductVariantOption
@@ -210,9 +222,6 @@ internal static class ProductTestData
                             ProductVariantId = 20,
                             Value = "A4",
                             StockQuantity = 2,
-                            FulfillmentType = ProductFulfillmentTypes.physical,
-                            Sku = "A4-SUNSET",
-                            WeightGrams = 120
                         }
                     ]
                 }

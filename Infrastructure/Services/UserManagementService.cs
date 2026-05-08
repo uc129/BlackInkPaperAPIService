@@ -26,12 +26,14 @@ public class UserManagementService(
                     (u.FullName != null && u.FullName.ToLower().Contains(q)));
             }
 
+            var page = Math.Max(request.Page, 1);
+            var pageSize = Math.Clamp(request.PageSize, 1, 100);
             var totalCount = await query.CountAsync(ct);
-            var offset = (request.Page - 1) * request.PageSize;
+            var offset = (page - 1) * pageSize;
             var users = await query
                 .OrderBy(u => u.Email)
                 .Skip(offset)
-                .Take(request.PageSize)
+                .Take(pageSize)
                 .ToListAsync(ct);
 
             var dtos = new List<UserSummaryDto>(users.Count);
@@ -52,7 +54,7 @@ public class UserManagementService(
             }
 
             return ServiceResponse<PagedResultDto<UserSummaryDto>>.Ok(
-                new PagedResultDto<UserSummaryDto>(dtos, request.Page, request.PageSize, totalCount));
+                new PagedResultDto<UserSummaryDto>(dtos, page, pageSize, totalCount));
         }
         catch (Exception ex)
         {

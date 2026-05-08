@@ -17,6 +17,7 @@ namespace Domain.Aggregates.Ecommerce
         public decimal? WeightGrams { get; set; }
         public int? StockQuantity { get; set; }
         public decimal? AbsolutePrice { get; set; }
+        public int?     ProductImageId { get; set; }
         public List<ProductVariantOption> Options { get; set; } = [];
     }
 }

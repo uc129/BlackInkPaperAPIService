@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Application.DTOs.Products;
 
 public record CreateProductRequest(
@@ -76,7 +78,7 @@ public record ProductSearchRequest(
     bool? IsAvailable,
     bool? IsFeatured,
     int Page = 1,
-    int PageSize = 20);
+    [Range(1, 100)] int PageSize = 20);
 
 public record UpdateProductFlagsRequest(
     bool? IsAvailable,
@@ -136,7 +138,10 @@ public record ProductImageDto(
     double AspectRatio,
     int Width,
     int Height,
-    string? PlaceholderUrl);
+    string? PlaceholderUrl,
+    string? Format,
+    int? Dpi,
+    long? FileSize);
 
 public record CreateProductImageDto(
     string AltText,
@@ -147,7 +152,10 @@ public record CreateProductImageDto(
     double AspectRatio,
     int Width,
     int Height,
-    string? PlaceholderUrl);
+    string? PlaceholderUrl,
+    string? Format,
+    int? Dpi,
+    long? FileSize);
 
 public record UpdateProductImageDto(
     int? Id,
@@ -159,7 +167,10 @@ public record UpdateProductImageDto(
     double AspectRatio,
     int Width,
     int Height,
-    string? PlaceholderUrl);
+    string? PlaceholderUrl,
+    string? Format,
+    int? Dpi,
+    long? FileSize);
 
 public record CreateProductVariantDto(
     string Label,
@@ -168,6 +179,7 @@ public record CreateProductVariantDto(
     decimal? WeightGrams,
     int? StockQuantity,
     decimal? AbsolutePrice,
+    int? ProductImageId,
     List<CreateProductVariantOptionDto> Options);
 
 public record UpdateProductVariantDto(
@@ -178,6 +190,7 @@ public record UpdateProductVariantDto(
     decimal? WeightGrams,
     int? StockQuantity,
     decimal? AbsolutePrice,
+    int? ProductImageId,
     List<UpdateProductVariantOptionDto> Options);
 
 public record ProductVariantDto(
@@ -188,6 +201,7 @@ public record ProductVariantDto(
     decimal? WeightGrams,
     int? StockQuantity,
     decimal? AbsolutePrice,
+    int? ProductImageId,
     List<ProductVariantOptionDto> Options);
 
 public record CreateProductVariantOptionDto(

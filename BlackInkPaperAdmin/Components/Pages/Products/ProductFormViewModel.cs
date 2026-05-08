@@ -27,6 +27,8 @@ public sealed class ProductFormViewModel
     public string CoverUrl  { get; set; } = "";
     public string HeaderUrl { get; set; } = "";
 
+    public List<ImageFormModel> Images { get; set; } = new();
+
     public bool UseStdVariants { get; set; } = true;
     public List<VariantGroupModel> Variants { get; set; } = new();
 
@@ -39,11 +41,30 @@ public sealed class ProductFormViewModel
     public List<int> SelectedTagIds { get; set; } = new();
 }
 
+public sealed class ImageFormModel
+{
+    public int?   Id          { get; set; }
+    public string TempKey     { get; set; } = Guid.NewGuid().ToString("N")[..8];
+    public string PublicId    { get; set; } = "";
+    public string BaseUrl     { get; set; } = "";
+    public string AltText     { get; set; } = "";
+    public bool   IsPrimary   { get; set; }
+    public int    DisplayOrder { get; set; }
+    public double AspectRatio { get; set; }
+    public int    Width       { get; set; }
+    public int    Height      { get; set; }
+    public string? Format     { get; set; }
+    public int?   Dpi         { get; set; }
+    public long?  FileSize    { get; set; }
+    public string? PlaceholderUrl { get; set; }
+}
+
 public sealed class VariantGroupModel
 {
     public string Label       { get; set; } = "";
     public string Sku         { get; set; } = "";
     public int    FulfillType { get; set; } = 1;
+    public int?   ImageId     { get; set; }
     public List<VariantOptionModel> Options { get; set; } = new();
 }
 

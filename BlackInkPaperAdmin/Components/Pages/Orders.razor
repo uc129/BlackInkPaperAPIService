@@ -10,7 +10,7 @@
     </div>
 </div>
 
-<div class="card">
+<div class="card orders-list">
     <div class="toolbar">
         <div class="chips">
             <button class="chip @(_filter == "all" ? "on" : "")" @onclick='() => SetFilter("all")'>
@@ -33,7 +33,7 @@
 
     @if (_loading)
     {
-        <div class="list-header" style="grid-template-columns:1.2fr 1.5fr 0.6fr 0.8fr 0.8fr 0.8fr auto">
+        <div class="list-header">
             <span>Order #</span><span>Customer</span><span>Items</span><span>Total</span><span>Status</span><span>Date</span><span></span>
         </div>
         @for (int i = 0; i < 6; i++)
@@ -81,7 +81,7 @@
     }
     else
     {
-        <div class="list-header" style="grid-template-columns:1.2fr 1.5fr 0.6fr 0.8fr 0.8fr 0.8fr auto">
+        <div class="list-header">
             <span>Order #</span>
             <span>Customer</span>
             <span>Items</span>
@@ -113,20 +113,6 @@
     }
 </div>
 
-<style>
-    .order-row {
-        display: grid;
-        grid-template-columns: 1.2fr 1.5fr 0.6fr 0.8fr 0.8fr 0.8fr auto;
-        align-items: center;
-        gap: 16px;
-        padding: 11px 18px;
-        border-bottom: 1px solid var(--line-soft);
-    }
-    .order-row:last-child { border-bottom: 0; }
-    .order-row:hover { background: var(--paper-100); }
-    .order-row .row-actions { display: flex; gap: 2px; opacity: 0.6; transition: opacity 0.12s; }
-    .order-row:hover .row-actions { opacity: 1; }
-</style>
 
 @code {
     private static readonly (string Label, string Key)[] _statusChips =
@@ -156,7 +142,7 @@
         try
         {
             var resp = await Http.GetFromJsonAsync<ServiceResponse<PagedResultDto<OrderSummaryDto>>>(
-                "api/admin/orders?Page=1&PageSize=200");
+                "api/admin/orders?Page=1&PageSize=100");
             if (resp?.Success == true && resp.Data is not null)
                 _all = resp.Data.Items.ToList();
             else

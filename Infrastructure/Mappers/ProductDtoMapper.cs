@@ -117,7 +117,10 @@ public static class ProductDtoMapper
                 image.AspectRatio,
                 image.Width,
                 image.Height,
-                image.PlaceholderUrl)).ToList(),
+                image.PlaceholderUrl,
+                image.Format,
+                image.Dpi,
+                image.FileSize)).ToList(),
             product.Variants.Select(variant => new ProductVariantDto(
                 variant.Id,
                 variant.Label,
@@ -126,6 +129,7 @@ public static class ProductDtoMapper
                 variant.WeightGrams,
                 variant.StockQuantity,
                 variant.AbsolutePrice,
+                variant.ProductImageId,
                 variant.Options.Select(option => new ProductVariantOptionDto(
                     option.Id,
                     option.Value,
@@ -173,7 +177,10 @@ public static class ProductDtoMapper
             AspectRatio = image.AspectRatio,
             Width = image.Width,
             Height = image.Height,
-            PlaceholderUrl = image.PlaceholderUrl?.Trim()
+            PlaceholderUrl = image.PlaceholderUrl?.Trim(),
+            Format = image.Format?.Trim(),
+            Dpi = image.Dpi,
+            FileSize = image.FileSize
         };
     }
 
@@ -190,7 +197,10 @@ public static class ProductDtoMapper
             AspectRatio = image.AspectRatio,
             Width = image.Width,
             Height = image.Height,
-            PlaceholderUrl = image.PlaceholderUrl?.Trim()
+            PlaceholderUrl = image.PlaceholderUrl?.Trim(),
+            Format = image.Format?.Trim(),
+            Dpi = image.Dpi,
+            FileSize = image.FileSize
         };
     }
 
@@ -204,6 +214,7 @@ public static class ProductDtoMapper
             WeightGrams = variant.WeightGrams,
             StockQuantity = variant.StockQuantity,
             AbsolutePrice = variant.AbsolutePrice,
+            ProductImageId = variant.ProductImageId,
             Options = variant.Options.Select(ToOption).ToList()
         };
     }
@@ -219,6 +230,7 @@ public static class ProductDtoMapper
             WeightGrams = variant.WeightGrams,
             StockQuantity = variant.StockQuantity,
             AbsolutePrice = variant.AbsolutePrice,
+            ProductImageId = variant.ProductImageId,
             Options = variant.Options.Select(ToOption).ToList()
         };
     }

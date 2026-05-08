@@ -4,10 +4,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using BlackInkPaperAPIService.Controllers.Extensions;
+using Asp.Versioning;
 
 namespace BlackInkPaperAPIService.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Authorize]
 [Route("api/cart")]
 public class CartController(

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Application.DTOs.Checkout;
+using Application.DTOs.Products;
 using Common.YourProject.Models;
 using Domain.Aggregates.Ecommerce;
 using Domain.Entities.Ecommerce;
@@ -32,22 +33,26 @@ public class CheckoutApplicationService(
         }
     }
 
+    private const int MaxAddressesPerUser = 20;
+
     public async Task<ServiceResponse<ShippingAddressDto>> AddAddressAsync(string userId, CreateShippingAddressRequest request, CancellationToken cancellationToken = default)
     {
         try
         {
             var validation = ValidateAddress(request.FullName, request.PhoneNumber, request.AddressLine1, request.City, request.State, request.PostalCode, request.CountryCode);
             if (!validation.Success)
-            {
                 return validation;
-            }
+
+            var existing = (await shippingAddressRepository.GetByUserId(userId)).ToList();
+            if (existing.Count >= MaxAddressesPerUser)
+                return ServiceResponse<ShippingAddressDto>.Fail(
+                    $"You can save a maximum of {MaxAddressesPerUser} shipping addresses.",
+                    statusCode: 400, errorCode: "address_limit_reached");
 
             var now = DateTime.UtcNow;
             var address = CheckoutDtoMapper.ToAggregate(userId, request, now);
             if (address.IsDefault)
-            {
                 await shippingAddressRepository.ClearDefault(userId);
-            }
 
             address.Id = await shippingAddressRepository.Add(address);
             return ServiceResponse<ShippingAddressDto>.Ok(CheckoutDtoMapper.ToDto(address), "Shipping address created successfully.", 201);
@@ -373,19 +378,28 @@ public class CheckoutApplicationService(
         }
     }
 
-    public async Task<ServiceResponse<IReadOnlyList<OrderDto>>> GetOrdersAsync(string userId, CancellationToken cancellationToken = default)
+    public async Task<ServiceResponse<PagedResultDto<OrderDto>>> GetOrdersAsync(
+        string userId, int page, int pageSize, CancellationToken cancellationToken = default)
     {
         try
         {
-            var orders = (await orderRepository.GetByUserId(userId))
+            var normalizedPage = Math.Max(page, 1);
+            var normalizedPageSize = Math.Clamp(pageSize, 1, 50);
+
+            var all = (await orderRepository.GetByUserId(userId)).ToList();
+            var totalCount = all.Count;
+            var items = all
+                .Skip((normalizedPage - 1) * normalizedPageSize)
+                .Take(normalizedPageSize)
                 .Select(CheckoutDtoMapper.ToDto)
                 .ToList();
 
-            return ServiceResponse<IReadOnlyList<OrderDto>>.Ok(orders);
+            return ServiceResponse<PagedResultDto<OrderDto>>.Ok(
+                new PagedResultDto<OrderDto>(items, normalizedPage, normalizedPageSize, totalCount));
         }
         catch (Exception ex)
         {
-            return ServiceResponse<IReadOnlyList<OrderDto>>.Fail("Unable to fetch orders.", ex.ToString(), 500, "order_read_failed");
+            return ServiceResponse<PagedResultDto<OrderDto>>.Fail("Unable to fetch orders.", ex.ToString(), 500, "order_read_failed");
         }
     }
 
@@ -395,15 +409,40 @@ public class CheckoutApplicationService(
         {
             var order = await orderRepository.GetById(orderId, userId);
             if (order is null)
-            {
                 return ServiceResponse<OrderDto>.Fail("Order not found.", statusCode: 404, errorCode: "order_not_found");
-            }
 
             return ServiceResponse<OrderDto>.Ok(CheckoutDtoMapper.ToDto(order));
         }
         catch (Exception ex)
         {
             return ServiceResponse<OrderDto>.Fail("Unable to fetch order.", ex.ToString(), 500, "order_read_failed");
+        }
+    }
+
+    private static readonly HashSet<string> CancellableStatuses =
+        new(StringComparer.OrdinalIgnoreCase) { "PendingPayment", "Pending", "Placed" };
+
+    public async Task<ServiceResponse<bool>> CancelOrderAsync(string userId, int orderId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var order = await orderRepository.GetById(orderId, userId);
+            if (order is null)
+                return ServiceResponse<bool>.Fail("Order not found.", statusCode: 404, errorCode: "order_not_found");
+
+            if (!CancellableStatuses.Contains(order.Status))
+                return ServiceResponse<bool>.Fail(
+                    $"Order cannot be cancelled in its current status: {order.Status}.",
+                    statusCode: 400, errorCode: "order_not_cancellable");
+
+            var updated = await orderRepository.UpdateStatusAsync(orderId, "Cancelled", DateTime.UtcNow, cancellationToken);
+            return updated
+                ? ServiceResponse<bool>.Ok(true, "Order cancelled successfully.")
+                : ServiceResponse<bool>.Fail("Failed to cancel order.", statusCode: 500, errorCode: "order_cancel_failed");
+        }
+        catch (Exception ex)
+        {
+            return ServiceResponse<bool>.Fail("Unable to cancel order.", ex.ToString(), 500, "order_cancel_failed");
         }
     }
 

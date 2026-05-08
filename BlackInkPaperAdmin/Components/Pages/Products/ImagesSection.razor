@@ -1,54 +1,393 @@
+@inject HttpClient Http
+@inject IJSRuntime Js
+
 <section id="section-images" class="section">
     <div class="section-head">
         <div>
             <h3 class="h-section">Images</h3>
-            <div class="meta">Cover and header image URLs.</div>
+            <div class="meta">Upload or link images. Each image can carry DPI and format metadata for print/digital variants.</div>
         </div>
-        <button class="btn btn-secondary btn-sm" disabled>
-            <Icon Name="upload" /> Upload
-        </button>
+        <div class="row gap-2">
+            <button class="btn btn-ghost btn-sm" @onclick="OpenLinkModal">
+                <Icon Name="link" /> Add by URL
+            </button>
+            <button class="btn btn-secondary btn-sm" @onclick="TriggerUpload" disabled="@_uploading">
+                <Icon Name="upload" /> @(_uploading ? "Uploading…" : "Upload image")
+            </button>
+        </div>
     </div>
     <div class="section-body">
-        <div class="grid-2">
-            <div class="field-block">
-                <label class="lbl">Cover image URL</label>
-                <div class="field">
-                    <Icon Name="image" />
-                    <input @bind="Vm.CoverUrl" @bind:after="NotifyChanged" placeholder="https://res.cloudinary.com/…" />
-                </div>
-                <div class="hint">Main catalog image (4:5 ratio recommended).</div>
+        <input type="file" id="img-upload-input" accept="image/*"
+               style="display:none" @onchange="HandleFileChange" />
+
+        @if (_uploadError is not null)
+        {
+            <div class="inline-error">
+                <Icon Name="alert" Size="13" /> @_uploadError
             </div>
-            <div class="field-block">
-                <label class="lbl">Header image URL</label>
-                <div class="field">
-                    <Icon Name="image" />
-                    <input @bind="Vm.HeaderUrl" @bind:after="NotifyChanged" placeholder="https://res.cloudinary.com/…" />
-                </div>
-                <div class="hint">Wide banner shown on the product page.</div>
+        }
+
+        @if (Vm.Images.Count > 0)
+        {
+            <div class="image-gallery">
+                @for (int i = 0; i < Vm.Images.Count; i++)
+                {
+                    var img = Vm.Images[i];
+                    var idx = i;
+                    <div class="image-card @(img.IsPrimary ? "primary" : "")">
+                        <div class="image-card-thumb">
+                            <img src="@img.BaseUrl" alt="@img.AltText" />
+                            @if (img.IsPrimary)
+                            {
+                                <span class="primary-tag">Primary</span>
+                            }
+                        </div>
+                        <div class="image-card-meta">
+                            <div class="field" style="padding:5px 8px;margin-bottom:6px">
+                                <input placeholder="Alt text" @bind="img.AltText" @bind:after="NotifyChanged" />
+                            </div>
+                            <div class="badge-row">
+                                @if (img.Width > 0)
+                                {
+                                    <span class="badge">@img.Width×@img.Height</span>
+                                }
+                                @if (!string.IsNullOrEmpty(img.Format))
+                                {
+                                    <span class="badge">@img.Format.ToUpperInvariant()</span>
+                                }
+                                @if (img.FileSize.HasValue)
+                                {
+                                    <span class="badge muted">@FmtBytes(img.FileSize.Value)</span>
+                                }
+                            </div>
+                            <div class="row gap-2 mt-2" style="padding:0 2px;align-items:center">
+                                <label class="lbl" style="font-size:11px;white-space:nowrap">DPI</label>
+                                <div class="field" style="padding:4px 8px;max-width:90px">
+                                    <input type="number" class="tabular" placeholder="—"
+                                           @bind="img.Dpi" @bind:after="NotifyChanged" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="image-card-actions">
+                            <button class="btn btn-icon btn-ghost" title="@(img.IsPrimary ? "Primary image" : "Set as primary")"
+                                    @onclick="() => SetPrimary(idx)"
+                                    style="@(img.IsPrimary ? "color:var(--accent)" : "")">
+                                <Icon Name="star" Size="14" />
+                            </button>
+                            <button class="btn btn-icon btn-ghost" title="Move up"
+                                    disabled="@(idx == 0)"
+                                    @onclick="() => MoveUp(idx)">
+                                <Icon Name="chevronRight" Size="14" Style="transform:rotate(-90deg)" />
+                            </button>
+                            <button class="btn btn-icon btn-ghost" title="Move down"
+                                    disabled="@(idx == Vm.Images.Count - 1)"
+                                    @onclick="() => MoveDown(idx)">
+                                <Icon Name="chevronRight" Size="14" Style="transform:rotate(90deg)" />
+                            </button>
+                            <button class="btn btn-icon btn-ghost" title="Remove"
+                                    @onclick="() => RemoveImage(idx)">
+                                <Icon Name="trash" Size="14" />
+                            </button>
+                        </div>
+                    </div>
+                }
             </div>
-        </div>
-        <div class="mt-3 image-grid">
-            @if (!string.IsNullOrEmpty(Vm.CoverUrl))
-            {
-                <div class="image-tile">
-                    <div class="primary-tag">Cover</div>
-                    <img src="@Vm.CoverUrl" alt="Cover"
-                         style="width:100%;height:100%;object-fit:cover" />
+        }
+        else if (!_uploading)
+        {
+            <div class="image-empty">
+                <Icon Name="image" Size="24" StrokeWidth="1.2" />
+                <span>No images yet — upload a file or add by URL.</span>
+            </div>
+        }
+    </div>
+</section>
+
+@if (_showLinkModal)
+{
+    <div class="overlay" @onclick="CloseLinkModal">
+        <div class="modal" style="max-width:500px" @onclick:stopPropagation>
+            <div class="modal-head">
+                <h2 class="h-section">Add image by URL</h2>
+                <button class="btn btn-icon btn-ghost" @onclick="CloseLinkModal">
+                    <Icon Name="x" />
+                </button>
+            </div>
+            <div class="modal-body">
+                @if (_linkError is not null)
+                {
+                    <div class="inline-error"><Icon Name="alert" Size="13" /> @_linkError</div>
+                }
+
+                <div class="field-block">
+                    <label class="lbl">Image URL <span style="color:var(--danger)">*</span></label>
+                    <div class="field">
+                        <Icon Name="link" />
+                        <input @bind="_linkUrl" @bind:event="oninput"
+                               placeholder="https://res.cloudinary.com/…"
+                               style="font-size:12.5px" />
+                    </div>
                 </div>
-            }
-            <div class="image-tile upload">
-                <div class="flex-col gap-2" style="align-items:center">
-                    <Icon Name="upload" Size="20" />
-                    <span>Cloudinary upload<br />coming soon</span>
+
+                @if (!string.IsNullOrWhiteSpace(_linkUrl) && _linkUrl.StartsWith("http"))
+                {
+                    <div style="border-radius:var(--r-md);overflow:hidden;background:var(--paper-200);max-height:180px;display:flex;align-items:center;justify-content:center">
+                        <img src="@_linkUrl" alt="Preview"
+                             style="max-width:100%;max-height:180px;object-fit:contain;display:block" />
+                    </div>
+                }
+
+                <div class="field-block">
+                    <label class="lbl">Alt text</label>
+                    <div class="field">
+                        <input @bind="_linkAltText" placeholder="e.g. A4 300 DPI print" />
+                    </div>
                 </div>
+
+                <div class="grid-2" style="gap:10px">
+                    <div class="field-block">
+                        <label class="lbl">Format</label>
+                        <div class="field" style="padding:4px 10px">
+                            <select style="border:0;outline:0;background:transparent;font:inherit;color:var(--ink-900);width:100%"
+                                    @bind="_linkFormat">
+                                <option value="">— unknown —</option>
+                                <option value="jpg">JPG</option>
+                                <option value="png">PNG</option>
+                                <option value="tif">TIFF</option>
+                                <option value="pdf">PDF</option>
+                                <option value="webp">WebP</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="field-block">
+                        <label class="lbl">DPI</label>
+                        <div class="field">
+                            <input type="number" class="tabular" @bind="_linkDpi" placeholder="e.g. 300" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid-2" style="gap:10px">
+                    <div class="field-block">
+                        <label class="lbl">Width (px)</label>
+                        <div class="field">
+                            <input type="number" class="tabular" @bind="_linkWidth" placeholder="—" />
+                        </div>
+                    </div>
+                    <div class="field-block">
+                        <label class="lbl">Height (px)</label>
+                        <div class="field">
+                            <input type="number" class="tabular" @bind="_linkHeight" placeholder="—" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-secondary" @onclick="CloseLinkModal">Cancel</button>
+                <span class="spacer"></span>
+                <button class="btn btn-primary" @onclick="ConfirmLinkModal">
+                    <Icon Name="plus" /> Add image
+                </button>
             </div>
         </div>
     </div>
-</section>
+}
 
 @code {
     [Parameter, EditorRequired] public ProductFormViewModel Vm { get; set; } = null!;
     [Parameter] public EventCallback OnChanged { get; set; }
 
+    // ── Cloudinary upload ────────────────────────────────────────────
+    private bool    _uploading;
+    private string? _uploadError;
+
     private Task NotifyChanged() => OnChanged.InvokeAsync();
+
+    private async Task TriggerUpload()
+    {
+        _uploadError = null;
+        await Js.InvokeVoidAsync("triggerFileInput", "img-upload-input");
+    }
+
+    private async Task HandleFileChange(ChangeEventArgs _)
+    {
+        _uploading   = true;
+        _uploadError = null;
+        StateHasChanged();
+
+        try
+        {
+            var sigResp = await Http.PostAsJsonAsync(
+                "api/storage/sign",
+                new StorageSignatureRequest(new Dictionary<string, object>()));
+
+            if (!sigResp.IsSuccessStatusCode)
+            {
+                _uploadError = $"Could not get upload signature (HTTP {(int)sigResp.StatusCode}).";
+                return;
+            }
+
+            var envelope = await sigResp.Content.ReadFromJsonAsync<ServiceResponse<StorageSignatureResponse>>();
+            var sig = envelope?.Data;
+            if (sig is null || string.IsNullOrEmpty(sig.Signature))
+            {
+                _uploadError = envelope?.Message ?? "Invalid signature response.";
+                return;
+            }
+
+            var result = await Js.InvokeAsync<CloudinaryUploadResult?>(
+                "uploadToCloudinary", "img-upload-input", sig);
+
+            if (result is null) { _uploadError = "Upload returned no data."; return; }
+
+            CommitImage(new ImageFormModel
+            {
+                PublicId    = result.PublicId,
+                BaseUrl     = result.SecureUrl,
+                Width       = result.Width,
+                Height      = result.Height,
+                AspectRatio = result.Width > 0 && result.Height > 0
+                    ? Math.Round((double)result.Width / result.Height, 4)
+                    : 1.0,
+                Format      = result.Format,
+                FileSize    = result.Bytes,
+            });
+
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _uploadError = ex.Message;
+        }
+        finally
+        {
+            _uploading = false;
+            await Js.InvokeVoidAsync("clearFileInput", "img-upload-input");
+        }
+    }
+
+    // ── Add-by-URL modal ─────────────────────────────────────────────
+    private bool    _showLinkModal;
+    private string  _linkUrl      = "";
+    private string  _linkAltText  = "";
+    private string  _linkFormat   = "";
+    private int?    _linkDpi;
+    private int?    _linkWidth;
+    private int?    _linkHeight;
+    private string? _linkError;
+
+    private void OpenLinkModal()
+    {
+        _linkUrl = _linkAltText = _linkFormat = "";
+        _linkDpi = _linkWidth = _linkHeight = null;
+        _linkError = null;
+        _showLinkModal = true;
+    }
+
+    private void CloseLinkModal() => _showLinkModal = false;
+
+    private async Task ConfirmLinkModal()
+    {
+        _linkError = null;
+        if (string.IsNullOrWhiteSpace(_linkUrl))
+        {
+            _linkError = "Image URL is required.";
+            return;
+        }
+        if (!_linkUrl.StartsWith("http"))
+        {
+            _linkError = "URL must start with http:// or https://.";
+            return;
+        }
+
+        var w = _linkWidth  ?? 0;
+        var h = _linkHeight ?? 0;
+        CommitImage(new ImageFormModel
+        {
+            BaseUrl     = _linkUrl.Trim(),
+            AltText     = _linkAltText.Trim(),
+            Format      = string.IsNullOrEmpty(_linkFormat) ? null : _linkFormat,
+            Dpi         = _linkDpi,
+            Width       = w,
+            Height      = h,
+            AspectRatio = w > 0 && h > 0 ? Math.Round((double)w / h, 4) : 1.0,
+        });
+
+        _showLinkModal = false;
+        await OnChanged.InvokeAsync();
+    }
+
+    // ── Shared image helpers ─────────────────────────────────────────
+    private void CommitImage(ImageFormModel img)
+    {
+        img.DisplayOrder = Vm.Images.Count;
+        img.IsPrimary    = Vm.Images.Count == 0;
+        Vm.Images.Add(img);
+    }
+
+    private async Task SetPrimary(int idx)
+    {
+        for (int i = 0; i < Vm.Images.Count; i++)
+            Vm.Images[i].IsPrimary = i == idx;
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task MoveUp(int idx)
+    {
+        if (idx == 0) return;
+        (Vm.Images[idx], Vm.Images[idx - 1]) = (Vm.Images[idx - 1], Vm.Images[idx]);
+        RenumberDisplayOrder();
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task MoveDown(int idx)
+    {
+        if (idx >= Vm.Images.Count - 1) return;
+        (Vm.Images[idx], Vm.Images[idx + 1]) = (Vm.Images[idx + 1], Vm.Images[idx]);
+        RenumberDisplayOrder();
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task RemoveImage(int idx)
+    {
+        Vm.Images.RemoveAt(idx);
+        RenumberDisplayOrder();
+        if (Vm.Images.Count > 0 && !Vm.Images.Any(i => i.IsPrimary))
+            Vm.Images[0].IsPrimary = true;
+        await OnChanged.InvokeAsync();
+    }
+
+    private void RenumberDisplayOrder()
+    {
+        for (int i = 0; i < Vm.Images.Count; i++)
+            Vm.Images[i].DisplayOrder = i;
+    }
+
+    private static string FmtBytes(long bytes) => bytes switch
+    {
+        >= 1_048_576 => $"{bytes / 1_048_576.0:F1} MB",
+        >= 1_024     => $"{bytes / 1_024.0:F0} KB",
+        _            => $"{bytes} B",
+    };
+
+    private sealed class CloudinaryUploadResult
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("public_id")]
+        public string PublicId { get; set; } = "";
+
+        [System.Text.Json.Serialization.JsonPropertyName("secure_url")]
+        public string SecureUrl { get; set; } = "";
+
+        [System.Text.Json.Serialization.JsonPropertyName("width")]
+        public int Width { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("height")]
+        public int Height { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("format")]
+        public string? Format { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("bytes")]
+        public long Bytes { get; set; }
+    }
 }

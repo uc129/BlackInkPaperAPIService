@@ -1,8 +1,10 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Application.DTOs.Checkout;
 
 public record AdminOrderSearchRequest(
     int Page = 1,
-    int PageSize = 50,
+    [Range(1, 100)] int PageSize = 50,
     string? Status = null,
     string? UserId = null,
     DateTime? DateFrom = null,

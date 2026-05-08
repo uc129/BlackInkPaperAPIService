@@ -4,10 +4,12 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.Data;
 using Dapper;
+using Asp.Versioning;
 
 namespace BlackInkPaperAPIService.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Route("api/seed")]
 public class SeedController(
     IDapperContext dapperContext,

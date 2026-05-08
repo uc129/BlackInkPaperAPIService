@@ -2,10 +2,12 @@ using Application.DTOs.Products;
 using BlackInkPaperAPIService.Controllers.Extensions;
 using Infrastructure.Contracts.Services;
 using Microsoft.AspNetCore.Mvc;
+using Asp.Versioning;
 
 namespace BlackInkPaperAPIService.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Route("api/products")]
 public class ProductController(
     IProductApplicationService productApplicationService,

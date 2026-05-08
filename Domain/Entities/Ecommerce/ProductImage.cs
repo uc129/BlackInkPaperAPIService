@@ -13,5 +13,10 @@
         public int Width { get; set; }
         public int Height { get; set; }
         public string? PlaceholderUrl { get; set; }
+        
+        // Metadata for digital assets/products
+        public string? Format { get; set; }
+        public int? Dpi { get; set; }
+        public long? FileSize { get; set; }
     }
 }

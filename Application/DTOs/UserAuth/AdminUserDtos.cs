@@ -1,8 +1,10 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Application.DTOs.UserAuth;
 
 public record AdminUserSearchRequest(
     int Page = 1,
-    int PageSize = 50,
+    [Range(1, 100)] int PageSize = 50,
     string? Role = null,
     string? Query = null);
 

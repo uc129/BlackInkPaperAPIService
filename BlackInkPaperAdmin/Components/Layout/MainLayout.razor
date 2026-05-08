@@ -7,7 +7,7 @@
 
 @if (_ready)
 {
-    <div class="shell" data-density="@_density">
+    <div class="shell">
         <NavMenu />
         <div>
             <header class="topbar">
@@ -30,14 +30,6 @@
                 </div>
                 <div class="topbar-spacer"></div>
                 <div class="topbar-actions">
-                    <div class="density-toggle" title="Density">
-                        <button class="@(_density == "comfortable" ? "on" : "")" @onclick='() => SetDensity("comfortable")'>
-                            <Icon Name="rows" Size="12" /> Comfy
-                        </button>
-                        <button class="@(_density == "compact" ? "on" : "")" @onclick='() => SetDensity("compact")'>
-                            <Icon Name="grid3" Size="12" /> Compact
-                        </button>
-                    </div>
                     <button class="btn btn-icon btn-ghost" title="Notifications">
                         <Icon Name="bell" />
                     </button>
@@ -51,7 +43,6 @@
 }
 
 @code {
-    private string _density = "comfortable";
     private bool _ready;
 
     protected override void OnInitialized()
@@ -88,8 +79,6 @@
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
         => StateHasChanged();
-
-    private void SetDensity(string d) => _density = d;
 
     private string[] GetCrumbs()
     {

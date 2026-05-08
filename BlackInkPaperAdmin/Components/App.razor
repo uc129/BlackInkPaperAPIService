@@ -42,6 +42,33 @@
                 window._sectionScrollHandler = null;
             }
         };
+        window.triggerFileInput = function (id) {
+            var el = document.getElementById(id);
+            if (el) el.click();
+        };
+        window.clearFileInput = function (id) {
+            var el = document.getElementById(id);
+            if (el) el.value = '';
+        };
+        window.uploadToCloudinary = async function (fileInputId, sigData) {
+            var input = document.getElementById(fileInputId);
+            if (!input || !input.files || !input.files[0]) return null;
+            var file = input.files[0];
+            var fd = new FormData();
+            fd.append('file', file);
+            fd.append('api_key', sigData.apiKey);
+            fd.append('timestamp', String(sigData.timestamp));
+            fd.append('signature', sigData.signature);
+            var res = await fetch(
+                'https://api.cloudinary.com/v1_1/' + sigData.cloudName + '/auto/upload',
+                { method: 'POST', body: fd }
+            );
+            if (!res.ok) {
+                var err = await res.text();
+                throw new Error('Cloudinary upload failed (' + res.status + '): ' + err);
+            }
+            return await res.json();
+        };
     </script>
     <div id="blazor-error-ui">
         An unhandled error has occurred. <button class="reload" onclick="location.reload()">Reload</button>

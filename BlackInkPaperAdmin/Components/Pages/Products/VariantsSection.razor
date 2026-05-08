@@ -10,6 +10,41 @@
                     OnToggle="v => { Vm.UseStdVariants = v; OnChanged.InvokeAsync(); }" />
     </div>
     <div class="section-body">
+
+        @if (Vm.UseStdVariants)
+        {
+            <div class="std-templates">
+                <div class="eyebrow" style="padding:0 0 8px;font-size:10px;letter-spacing:.06em;color:var(--ink-400)">
+                    QUICK-ADD TEMPLATES
+                </div>
+                <div class="template-list">
+                    @foreach (var tmpl in StandardTemplates)
+                    {
+                        var alreadyAdded = Vm.Variants.Any(v =>
+                            v.Label.Equals(tmpl.Label, StringComparison.OrdinalIgnoreCase));
+                        <div class="template-card @(alreadyAdded ? "added" : "")">
+                            <div class="template-card-info">
+                                <span class="template-card-label">@tmpl.Label</span>
+                                <span class="template-card-options">@string.Join(" · ", tmpl.Options.Take(3))@(tmpl.Options.Length > 3 ? " +…" : "")</span>
+                            </div>
+                            @if (alreadyAdded)
+                            {
+                                <span style="font-size:11px;color:var(--ok);white-space:nowrap">
+                                    <Icon Name="check" Size="11" /> Added
+                                </span>
+                            }
+                            else
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => AddFromTemplate(tmpl)">
+                                    <Icon Name="plus" Size="12" /> Add
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
         @for (int vi = 0; vi < Vm.Variants.Count; vi++)
         {
             var variant = Vm.Variants[vi];
@@ -31,6 +66,26 @@
                             <option value="0">Digital</option>
                         </select>
                     </div>
+                    @{
+                        var savedImages = Images.Where(i => i.Id.HasValue).ToList();
+                    }
+                    @if (savedImages.Count > 0)
+                    {
+                        <div class="field" style="max-width:230px;padding:4px 8px" title="Link this variant to a product image">
+                            <Icon Name="image" Size="13" Style="flex-shrink:0;color:var(--ink-400)" />
+                            <select style="border:0;outline:0;background:transparent;font:inherit;color:var(--ink-900);width:100%;min-width:0"
+                                    value="@(variant.ImageId?.ToString() ?? "")"
+                                    @onchange="e => { variant.ImageId = string.IsNullOrEmpty(e.Value?.ToString()) ? (int?)null : int.Parse(e.Value.ToString()!); NotifyChanged(); }">
+                                <option value="">— no image —</option>
+                                @foreach (var img in savedImages)
+                                {
+                                    var label = !string.IsNullOrWhiteSpace(img.AltText) ? img.AltText : img.PublicId;
+                                    var suffix = img.Dpi.HasValue ? $" · {img.Dpi} DPI" : (!string.IsNullOrEmpty(img.Format) ? $" · {img.Format.ToUpperInvariant()}" : "");
+                                    <option value="@img.Id">@label@suffix</option>
+                                }
+                            </select>
+                        </div>
+                    }
                     <span class="spacer"></span>
                     <button class="btn btn-icon btn-ghost" title="Remove group"
                             @onclick="() => RemoveVariant(vIdx)">
@@ -76,6 +131,7 @@
                 </div>
             </div>
         }
+
         <button class="btn btn-secondary btn-sm" @onclick="AddVariant">
             <Icon Name="plus" /> Add variant group
         </button>
@@ -85,8 +141,34 @@
 @code {
     [Parameter, EditorRequired] public ProductFormViewModel Vm { get; set; } = null!;
     [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public List<ImageFormModel> Images { get; set; } = new();
+
+    private sealed record VariantTemplate(string Label, string Sku, string[] Options, int FulfillType = 1);
+
+    private static readonly VariantTemplate[] StandardTemplates =
+    [
+        new("Paper Size",   "SIZE",    ["A4 (210×297mm)", "A3 (297×420mm)", "A2 (420×594mm)", "A1 (594×841mm)"]),
+        new("Paper Stock",  "STOCK",   ["Matte", "Glossy", "Fine Art", "Metallic"]),
+        new("Frame Style",  "FRAME",   ["Framed", "Unframed", "Canvas Roll"]),
+        new("Digital File", "DIGITAL", ["Standard JPG", "High-Res TIFF", "Print-Ready PDF"], FulfillType: 0),
+    ];
 
     private Task NotifyChanged() => OnChanged.InvokeAsync();
+
+    private Task AddFromTemplate(VariantTemplate tmpl)
+    {
+        if (Vm.Variants.Any(v => v.Label.Equals(tmpl.Label, StringComparison.OrdinalIgnoreCase)))
+            return Task.CompletedTask;
+
+        Vm.Variants.Add(new VariantGroupModel
+        {
+            Label       = tmpl.Label,
+            Sku         = tmpl.Sku,
+            FulfillType = tmpl.FulfillType,
+            Options     = tmpl.Options.Select(o => new VariantOptionModel { Value = o }).ToList(),
+        });
+        return OnChanged.InvokeAsync();
+    }
 
     private async Task AddVariant()
     {

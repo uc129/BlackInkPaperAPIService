@@ -2,10 +2,12 @@ using BlackInkPaperAPIService.Controllers.Extensions;
 using Infrastructure.Contracts.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Asp.Versioning;
 
 namespace BlackInkPaperAPIService.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [AllowAnonymous]
 [Route("api/payments/razorpay")]
 public class RazorpayWebhookController(

@@ -10,6 +10,7 @@
         public decimal? WeightGrams { get; set; }
         public int? StockQuantity { get; set; }
         public decimal? AbsolutePrice { get; set; }
+        public int? ProductImageId { get; set; } // Link to specific asset (e.g. for digital products)
         public List<int> OptionIds { get; set; } = [];
     }
     

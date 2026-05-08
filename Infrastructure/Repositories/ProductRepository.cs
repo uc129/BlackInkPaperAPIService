@@ -326,7 +326,8 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 ProfileImageUrl,
                 IsVerified
             FROM ArtistProfiles
-            ORDER BY DisplayName, Id;
+            ORDER BY DisplayName, Id
+            LIMIT 500;
             """;
 
         using var connection = dapperContext.CreateConnection();
@@ -348,7 +349,8 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 IsActive,
                 IsFeatured
             FROM ProductCategories
-            ORDER BY PrintName, Name, Id;
+            ORDER BY PrintName, Name, Id
+            LIMIT 500;
             """;
 
         using var connection = dapperContext.CreateConnection();
@@ -372,7 +374,8 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 IsFeatured
             FROM ProductSubCategories
             WHERE @CategoryId IS NULL OR CategoryId = @CategoryId
-            ORDER BY PrintName, Name, Id;
+            ORDER BY PrintName, Name, Id
+            LIMIT 500;
             """;
 
         using var connection = dapperContext.CreateConnection();
@@ -389,7 +392,8 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 Slug,
                 Color
             FROM ProductTags
-            ORDER BY Name, Id;
+            ORDER BY Name, Id
+            LIMIT 500;
             """;
 
         using var connection = dapperContext.CreateConnection();
@@ -925,7 +929,10 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 AspectRatio,
                 Width,
                 Height,
-                PlaceholderUrl
+                PlaceholderUrl,
+                Format,
+                Dpi,
+                FileSize
             )
             VALUES
             (
@@ -938,7 +945,10 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 @AspectRatio,
                 @Width,
                 @Height,
-                @PlaceholderUrl
+                @PlaceholderUrl,
+                @Format,
+                @Dpi,
+                @FileSize
             );
             """;
 
@@ -992,8 +1002,8 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
             """;
 
         const string insertVariantSql = """
-            INSERT INTO ProductVariants (ProductId, Label, FulfillmentType, Sku, WeightGrams, StockQuantity, AbsolutePrice)
-            VALUES (@ProductId, @Label, @FulfillmentType, @Sku, @WeightGrams, @StockQuantity, @AbsolutePrice)
+            INSERT INTO ProductVariants (ProductId, Label, FulfillmentType, Sku, WeightGrams, StockQuantity, AbsolutePrice, ProductImageId)
+            VALUES (@ProductId, @Label, @FulfillmentType, @Sku, @WeightGrams, @StockQuantity, @AbsolutePrice, @ProductImageId)
             RETURNING Id;
             """;
 
@@ -1032,7 +1042,8 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                     variant.Sku,
                     variant.WeightGrams,
                     variant.StockQuantity,
-                    variant.AbsolutePrice
+                    variant.AbsolutePrice,
+                    variant.ProductImageId
                 },
                 transaction);
 
