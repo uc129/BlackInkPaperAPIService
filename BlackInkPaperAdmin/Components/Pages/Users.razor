@@ -125,6 +125,7 @@
 
 
 @code {
+    private static readonly System.Text.Json.JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
     private const string ArtistRole = "Artist";
     private static readonly string[] _roles = ["Admin", "Artist", "User"];
 
@@ -182,13 +183,12 @@
                 ? currentRoles.Where(r => r != role).ToList()
                 : [.. currentRoles, role];
 
-            var opts = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var resp = await Http.PatchAsJsonAsync($"api/admin/users/{userId}/roles", new { roles = newRoles });
-            var result = await resp.Content.ReadFromJsonAsync<ServiceResponse<UserSummaryDto>>(opts);
+            var result = await resp.Content.ReadFromJsonAsync<ServiceResponse<UserSummaryDto>>(_jsonOpts);
             if (result?.Success == true)
             {
                 await Load();
-                ShowToast(remove ? $"{role} role removed." : $"{role} role granted.");
+                await ShowToast(remove ? $"{role} role removed." : $"{role} role granted.");
             }
         }
         catch { /* swallow — no user-facing error needed for inline toggle */ }
@@ -202,7 +202,7 @@
         _        => "draft"
     };
 
-    private async void ShowToast(string msg)
+    private async Task ShowToast(string msg)
     {
         _toast = msg; StateHasChanged();
         await Task.Delay(3000);

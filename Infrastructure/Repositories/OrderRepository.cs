@@ -544,11 +544,12 @@ public class OrderRepository(IDapperContext dapperContext) : IOrderRepository
                 o.TotalAmount,
                 o.PaidAt,
                 o.CreatedAt,
-                (SELECT COUNT(*) FROM OrderItems oi WHERE oi.OrderId = o.Id) AS ItemCount,
+                COALESCE(ic.ItemCount, 0) AS ItemCount,
                 COALESCE(u."FullName", '') AS CustomerName,
                 COALESCE(u."Email", '') AS CustomerEmail
             FROM Orders o
             LEFT JOIN "Users" u ON u."Id" = o.UserId
+            LEFT JOIN (SELECT OrderId, COUNT(*) AS ItemCount FROM OrderItems GROUP BY OrderId) ic ON ic.OrderId = o.Id
             {whereClause}
             ORDER BY o.CreatedAt DESC
             LIMIT @Limit OFFSET @Offset;

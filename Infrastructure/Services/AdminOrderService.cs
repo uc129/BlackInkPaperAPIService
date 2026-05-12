@@ -97,8 +97,8 @@ public class AdminOrderService(IOrderRepository orderRepository) : IAdminOrderSe
             if (!updated)
                 return ServiceResponse<OrderDto>.Fail("Status update failed.", statusCode: 500, errorCode: "status_update_failed");
 
-            var refreshed = await orderRepository.GetById(orderId);
-            return ServiceResponse<OrderDto>.Ok(CheckoutDtoMapper.ToDto(refreshed!), "Order status updated.");
+            order.Status = request.Status;
+            return ServiceResponse<OrderDto>.Ok(CheckoutDtoMapper.ToDto(order), "Order status updated.");
         }
         catch (Exception ex)
         {

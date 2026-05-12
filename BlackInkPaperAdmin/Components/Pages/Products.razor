@@ -22,16 +22,16 @@
                 All <span class="count">@_all.Count</span>
             </button>
             <button class="chip @(_filter == "available" ? "on" : "")" @onclick='() => SetFilter("available")'>
-                Available <span class="count">@_all.Count(p => p.Taxonomy.IsAvailable && (p.Stats.StockQuantity ?? 1) > 0)</span>
+                Available <span class="count">@_countAvailable</span>
             </button>
             <button class="chip @(_filter == "draft" ? "on" : "")" @onclick='() => SetFilter("draft")'>
-                Drafts <span class="count">@_all.Count(p => !p.Taxonomy.IsAvailable)</span>
+                Drafts <span class="count">@_countDraft</span>
             </button>
             <button class="chip @(_filter == "featured" ? "on" : "")" @onclick='() => SetFilter("featured")'>
-                Featured <span class="count">@_all.Count(p => p.Taxonomy.IsFeatured)</span>
+                Featured <span class="count">@_countFeatured</span>
             </button>
             <button class="chip @(_filter == "out" ? "on" : "")" @onclick='() => SetFilter("out")'>
-                Out of stock <span class="count">@_all.Count(p => p.Stats.StockQuantity == 0)</span>
+                Out of stock <span class="count">@_countOut</span>
             </button>
         </div>
         <span class="spacer"></span>
@@ -176,6 +176,10 @@
     private bool _sortAsc = true;
     private bool _loading = true;
     private string? _error;
+    private int _countAvailable;
+    private int _countDraft;
+    private int _countFeatured;
+    private int _countOut;
 
     protected override async Task OnInitializedAsync() => await LoadProducts();
 
@@ -188,7 +192,13 @@
             var resp = await Http.GetFromJsonAsync<ServiceResponse<PagedResultDto<ProductSummaryDto>>>(
                 "api/admin/products?Page=1&PageSize=100");
             if (resp?.Success == true && resp.Data is not null)
+            {
                 _all = resp.Data.Items.ToList();
+                _countAvailable = _all.Count(p => p.Taxonomy.IsAvailable && (p.Stats.StockQuantity ?? 1) > 0);
+                _countDraft     = _all.Count(p => !p.Taxonomy.IsAvailable);
+                _countFeatured  = _all.Count(p => p.Taxonomy.IsFeatured);
+                _countOut       = _all.Count(p => p.Stats.StockQuantity == 0);
+            }
             else
                 _error = resp?.Message ?? "Unknown error";
         }

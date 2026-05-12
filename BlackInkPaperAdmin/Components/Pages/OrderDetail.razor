@@ -214,6 +214,8 @@ else if (_order is not null)
 </style>
 
 @code {
+    private static readonly System.Text.Json.JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
+
     [Parameter] public int Id { get; set; }
 
     private OrderDto? _order;
@@ -247,13 +249,12 @@ else if (_order is not null)
         _updating = true; _updateError = null; _pendingStatus = newStatus;
         try
         {
-            var opts = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var resp = await Http.PatchAsJsonAsync($"api/admin/orders/{Id}/status", new { status = newStatus });
-            var result = await resp.Content.ReadFromJsonAsync<ServiceResponse<OrderDto>>(opts);
+            var result = await resp.Content.ReadFromJsonAsync<ServiceResponse<OrderDto>>(_jsonOpts);
             if (result?.Success == true && result.Data is not null)
             {
                 _order = result.Data;
-                ShowToast($"Order marked as {newStatus}.");
+                await ShowToast($"Order marked as {newStatus}.");
             }
             else
             {
@@ -280,7 +281,7 @@ else if (_order is not null)
         _           => "draft"
     };
 
-    private async void ShowToast(string msg)
+    private async Task ShowToast(string msg)
     {
         _toast = msg; StateHasChanged();
         await Task.Delay(3000);

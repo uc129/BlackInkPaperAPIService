@@ -20,7 +20,7 @@
             {
                 var k = key;
                 <button class="chip @(_filter == k ? "on" : "")" @onclick="() => SetFilter(k)">
-                    @label <span class="count">@_all.Count(o => o.Status == k)</span>
+                    @label <span class="count">@(_statusCounts.GetValueOrDefault(k))</span>
                 </button>
             }
         </div>
@@ -127,6 +127,7 @@
 
     private List<OrderSummaryDto> _all = [];
     private List<OrderSummaryDto> _filtered = [];
+    private Dictionary<string, int> _statusCounts = new();
     private string _filter = "all";
     private string _query = "";
     private bool _loading = true;
@@ -144,7 +145,10 @@
             var resp = await Http.GetFromJsonAsync<ServiceResponse<PagedResultDto<OrderSummaryDto>>>(
                 "api/admin/orders?Page=1&PageSize=100");
             if (resp?.Success == true && resp.Data is not null)
+            {
                 _all = resp.Data.Items.ToList();
+                _statusCounts = _all.GroupBy(o => o.Status).ToDictionary(g => g.Key, g => g.Count());
+            }
             else
                 _error = resp?.Message ?? "Unknown error";
         }

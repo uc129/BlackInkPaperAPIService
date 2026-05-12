@@ -11,10 +11,11 @@ public class CartRepository(IDapperContext dapperContext) : ICartRepository
     public async Task<CartAggregate?> GetActiveCart(string userId)
     {
         const string sql = """
-            SELECT TOP 1 *
+            SELECT *
             FROM Carts
             WHERE UserId = @UserId AND Status = 'Active'
-            ORDER BY Id DESC;
+            ORDER BY Id DESC
+            LIMIT 1;
 
             SELECT items.*
             FROM CartItems items

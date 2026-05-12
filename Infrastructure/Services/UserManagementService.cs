@@ -44,13 +44,7 @@ public class UserManagementService(
                     !roles.Contains(request.Role, StringComparer.OrdinalIgnoreCase))
                     continue;
 
-                dtos.Add(new UserSummaryDto(
-                    user.Id,
-                    user.Email ?? string.Empty,
-                    user.FullName ?? string.Empty,
-                    roles,
-                    user.LockoutEnd?.UtcDateTime ?? DateTime.MinValue,
-                    !user.LockoutEnabled || user.LockoutEnd is null || user.LockoutEnd <= DateTimeOffset.UtcNow));
+                dtos.Add(ToDto(user, roles));
             }
 
             return ServiceResponse<PagedResultDto<UserSummaryDto>>.Ok(

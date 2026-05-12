@@ -554,8 +554,7 @@ else
         {
             await Js.InvokeVoidAsync("disposeSectionObserver");
         }
-        catch
-        { return;}
-        _dotNetRef?.Dispose();
+        catch { }
+        finally { _dotNetRef?.Dispose(); }
     }
 }

@@ -4,7 +4,6 @@ using Common.YourProject.Models;
 using Infrastructure.Contracts.Repositories;
 using Infrastructure.Contracts.Services;
 using Infrastructure.Persistence;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -82,13 +81,9 @@ namespace BlackInkPaperAPIService.Controllers
         }
 
         [HttpPost("logout")]
-        [Authorize] // Only logged-in users can log out
-        public async Task<IActionResult> Logout()
+        [Authorize]
+        public IActionResult Logout()
         {
-             await HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
-
-            // For JWT, we simply return a success message. 
-            // The Frontend is responsible for removing the token from its storage.
             return this.ToApiResult(ServiceResponse<string>.Ok("Logged out successfully. Please remove your token."));
         }
 
@@ -220,7 +215,6 @@ namespace BlackInkPaperAPIService.Controllers
             if (user is null)
                 return this.ToApiResult(ServiceResponse<AuthResponse>.Fail("User not found.", statusCode: 401, errorCode: "user_not_found"));
 
-            // Rotate: revoke old token, issue new one
             await refreshTokenRepo.RevokeAsync(request.RefreshToken, HttpContext.RequestAborted);
             var roles = await userManager.GetRolesAsync(user);
             var accessToken = tokenService.GenerateToken(user, roles);

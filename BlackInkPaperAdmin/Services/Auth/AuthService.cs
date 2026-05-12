@@ -8,6 +8,8 @@ namespace BlackInkPaperAdmin.Services.Auth;
 
 public class AuthService : IAuthService
 {
+    private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
+
     private readonly HttpClient _http;
     private readonly TokenStore _store;
     private readonly IJSRuntime _js;
@@ -25,8 +27,7 @@ public class AuthService : IAuthService
         {
             var resp = await _http.PostAsJsonAsync("api/accounts/login",
                 new LoginRequest(email, password));
-            var result = await resp.Content.ReadFromJsonAsync<ServiceResponse<AuthResponse>>(
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var result = await resp.Content.ReadFromJsonAsync<ServiceResponse<AuthResponse>>(_jsonOpts);
 
             if (result?.Success == true && result.Data?.Token is { } token)
             {
