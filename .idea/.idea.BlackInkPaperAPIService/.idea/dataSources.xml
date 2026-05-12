@@ -14,7 +14,7 @@
       </jdbc-additional-properties>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="postgres@db.wcsisfzvscpuypltbvtx.supabase.co" uuid="317cba27-3078-41b0-a75e-4168c9633805">
+    <data-source source="LOCAL" name="postgres@db.wcsisfzvscpuypltbvtx.supabase.co" uuid="c533d249-c997-4f4c-b812-f48bfa0db811">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>

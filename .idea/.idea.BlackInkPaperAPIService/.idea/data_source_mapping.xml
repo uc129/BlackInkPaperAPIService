@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourcePerFileMappings">
-    <file url="file://$PROJECT_DIR$/Infrastructure/Persistence/Scripts/CreateAllTables.Postgres.sql" value="317cba27-3078-41b0-a75e-4168c9633805" />
-    <file url="file://$PROJECT_DIR$/Infrastructure/Persistence/Seeds/SeedAll.Postgres.sql" value="317cba27-3078-41b0-a75e-4168c9633805" />
-    <file url="file://$PROJECT_DIR$/Infrastructure/Repositories/ProductRepository.cs" value="317cba27-3078-41b0-a75e-4168c9633805" />
+    <file url="file://$PROJECT_DIR$/Infrastructure/Persistence/Seeds/SeedIllustrationProducts.sql" value="c533d249-c997-4f4c-b812-f48bfa0db811" />
   </component>
 </project>

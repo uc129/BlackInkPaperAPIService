@@ -3,5 +3,6 @@
   <component name="SqlDialectMappings">
     <file url="file://$PROJECT_DIR$/Infrastructure/Persistence/Scripts/CreateAllTables.Postgres.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/Infrastructure/Persistence/Seeds/SeedAll.Postgres.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/Infrastructure/Persistence/Seeds/SeedIllustrationProducts.sql" dialect="PostgreSQL" />
   </component>
 </project>

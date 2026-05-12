@@ -16,7 +16,7 @@ using Asp.Versioning;
 namespace BlackInkPaperAPIService.Controllers
 {
     [ApiController]
-[ApiVersion("1.0")]
+    [ApiVersion("1.0")]
     [Route("api/[controller]")]
     [EnableRateLimiting("auth")]
     public class AccountsController(

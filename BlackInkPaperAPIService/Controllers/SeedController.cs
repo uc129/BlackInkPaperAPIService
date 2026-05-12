@@ -49,6 +49,23 @@ public class SeedController(
     }
 
     
+    [HttpPost("illustrations")]
+    public async Task<IActionResult> SeedIllustrations()
+    {
+        if (!env.IsDevelopment())
+            return Forbid("Seeding is only allowed in development.");
+
+        try
+        {
+            await ExecuteSqlScript("SeedIllustrationProducts.sql");
+            return Ok(new { Message = "Illustration products seeded successfully." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { Error = ex.Message, Details = ex.ToString() });
+        }
+    }
+
     [HttpPost("identity")]
     public async Task<IActionResult> SeedIdentities()
     {
