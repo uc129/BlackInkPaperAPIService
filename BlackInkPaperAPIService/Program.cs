@@ -25,7 +25,7 @@ var builder = WebApplication.CreateBuilder(args);
 //   CORS__ALLOWEDORIGINS=https://admin.yourdomain.com,https://yourdomain.com
 var allowedOrigins = (builder.Configuration["Cors:AllowedOrigins"] ?? "")
     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
+    
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAdminUI", policy =>
