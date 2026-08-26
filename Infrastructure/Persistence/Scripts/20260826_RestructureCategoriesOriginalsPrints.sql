@@ -9,12 +9,13 @@
 --   4 Travel Art      -> 7 Wanderlust Prints,    8 Cultural Scenes
 --
 -- Target (2 levels only):
---   Originals (1)  -> Originals (sub 2)                    [empty for now]
---   Prints    (2)  -> Black & White (1), Cityscapes (3),
---                     Commissions (5),   Travel Art (7)
+--   Originals (1)  -> Commissions (sub 5)
+--   Prints    (2)  -> Black & White (1), Cityscapes (3), Travel Art (7)
 --
--- Each product keeps its theme: its old top-level category becomes its Prints
--- sub-category. The finer 8 sub-categories collapse into that parent.
+-- Each product keeps its theme: its old top-level category becomes a
+-- sub-category. Commissions (one-off custom/pet portraits) is treated as an
+-- original, so it lands under Originals; the rest sit under Prints. The finer
+-- 8 sub-categories collapse into that parent.
 --
 -- Run once, manually, against the live database (Supabase SQL editor or psql).
 -- Re-running is a no-op. This targets the ids listed above; if the live ids
@@ -37,16 +38,17 @@ SET NameCode = 'PRINTS', Name = 'Prints', PrintName = 'Prints',
     IsActive = TRUE, IsFeatured = TRUE
 WHERE Id = 2;
 
--- 2. Re-point every product to Prints (2), mapping its old THEME (top category,
---    identified here by its old sub-category) to the kept representative sub.
---    Keyed on the stable old sub-category ids so nothing double-processes.
-UPDATE Products SET CategoryId = 2, SubCategoryId = 1 WHERE SubCategoryId IN (1, 2); -- Black & White
-UPDATE Products SET CategoryId = 2, SubCategoryId = 3 WHERE SubCategoryId IN (3, 4); -- Cityscapes
-UPDATE Products SET CategoryId = 2, SubCategoryId = 5 WHERE SubCategoryId IN (5, 6); -- Commissions
-UPDATE Products SET CategoryId = 2, SubCategoryId = 7 WHERE SubCategoryId IN (7, 8); -- Travel Art
+-- 2. Re-point every product by its old THEME (top category, identified here by
+--    its old sub-category) to the kept representative sub: Commissions moves to
+--    Originals (1), the rest to Prints (2). Keyed on the stable old
+--    sub-category ids so nothing double-processes.
+UPDATE Products SET CategoryId = 2, SubCategoryId = 1 WHERE SubCategoryId IN (1, 2); -- Black & White -> Prints
+UPDATE Products SET CategoryId = 2, SubCategoryId = 3 WHERE SubCategoryId IN (3, 4); -- Cityscapes    -> Prints
+UPDATE Products SET CategoryId = 1, SubCategoryId = 5 WHERE SubCategoryId IN (5, 6); -- Commissions   -> Originals
+UPDATE Products SET CategoryId = 2, SubCategoryId = 7 WHERE SubCategoryId IN (7, 8); -- Travel Art    -> Prints
 
--- 3. Repurpose the kept sub-categories: 4 themes under Prints, plus a default
---    Originals sub so genuine one-off pieces can be added later.
+-- 3. Repurpose the kept sub-categories: 3 themes under Prints, Commissions
+--    under Originals.
 UPDATE ProductSubCategories
 SET CategoryId = 2, NameCode = 'BLACK_AND_WHITE', Name = 'Black & White',
     PrintName = 'Black & White', Slug = 'black-and-white', IsActive = TRUE
@@ -58,7 +60,7 @@ SET CategoryId = 2, NameCode = 'CITYSCAPES', Name = 'Cityscapes',
 WHERE Id = 3;
 
 UPDATE ProductSubCategories
-SET CategoryId = 2, NameCode = 'COMMISSIONS', Name = 'Commissions',
+SET CategoryId = 1, NameCode = 'COMMISSIONS', Name = 'Commissions',
     PrintName = 'Commissions', Slug = 'commissions', IsActive = TRUE
 WHERE Id = 5;
 
@@ -67,14 +69,9 @@ SET CategoryId = 2, NameCode = 'TRAVEL_ART', Name = 'Travel Art',
     PrintName = 'Travel Art', Slug = 'travel-art', IsActive = TRUE
 WHERE Id = 7;
 
-UPDATE ProductSubCategories
-SET CategoryId = 1, NameCode = 'ORIGINALS_ALL', Name = 'Originals',
-    PrintName = 'Originals', Slug = 'originals-all', IsActive = TRUE
-WHERE Id = 2;
-
 -- 4. Drop the now-unused finer sub-categories (no product references them).
 DELETE FROM ProductSubCategories
-WHERE Id IN (4, 6, 8)
+WHERE Id IN (2, 4, 6, 8)
   AND NOT EXISTS (SELECT 1 FROM Products p WHERE p.SubCategoryId = ProductSubCategories.Id);
 
 -- 5. Drop the now-unused legacy top categories (no sub-category or product references them).
@@ -89,7 +86,7 @@ SELECT setval(pg_get_serial_sequence('ProductSubCategories', 'id'), COALESCE(MAX
 
 COMMIT;
 
--- Verification (run after the migration; expect all products under Prints):
+-- Verification (run after the migration; Commissions under Originals, the rest under Prints):
 SELECT c.Name AS category, s.Name AS subcategory, COUNT(p.Id) AS products
 FROM ProductCategories c
 LEFT JOIN ProductSubCategories s ON s.CategoryId = c.Id
