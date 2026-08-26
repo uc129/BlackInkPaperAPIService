@@ -57,26 +57,37 @@ This pre-dates the Originals work — it affects **any** no-variant physical
 product with tracked stock — but Originals make it acute, since "exactly one
 piece" is the entire point.
 
-## Recommended fixes (not yet applied)
+## Fixes applied
 
-1. **Decrement no-variant tracked-stock items.** Gate the product-level decrement
-   on `productStock.HasValue` instead of `FulfillmentType == physical`. Digital
-   (null stock) is still skipped by the existing `HasValue` guard; the variant
-   branch still returns early when it decremented, so there's no double-decrement.
-   This makes Originals decrement and lets the `StockQuantity >= @Quantity` guard
-   block a second sale.
-2. **Hide sold-out.** Either (a) set `IsAvailable = false` when a decrement brings
-   `StockQuantity` to 0 (smallest blast radius, public queries unchanged), or
-   (b) make public queries treat `StockQuantity = 0` as unavailable
-   (`(StockQuantity IS NULL OR StockQuantity > 0)`) — single source of truth, but
-   touches search + detail. Recommend (a), optionally both.
-3. **Defense in depth (optional).** Re-check stock when adding to cart / placing
-   the order so a sold-out Original can't be added (today add-to-cart only checks
-   `IsAvailable`, `CartApplicationService.cs:54`).
+Both in `ApplyInventoryForOrderItem` (`OrderRepository.cs`):
+
+1. **Decrement no-variant tracked-stock items.** The product-level decrement is
+   now gated on `productStock.HasValue` instead of `FulfillmentType == physical`.
+   Digital (null stock) is still skipped by the `HasValue` guard; the variant
+   branch still returns early when it decremented, so there is no
+   double-decrement. Originals now decrement and the `StockQuantity >= @Quantity`
+   guard blocks a second sale (throws "Insufficient stock", failing the capture).
+2. **Hide sold-out.** After a successful decrement, `IsAvailable` is set to
+   `FALSE` when `StockQuantity <= 0`. Public listing/detail already filter on
+   `IsAvailable`, so a sold Original drops out of the store with no query changes.
+
+### Still optional / not done
+
+- **Variant-level sold-out** (flip a Print's availability when *all* its variant
+  options hit 0) is a separate, more involved change and was left alone.
+- **Defense in depth** — re-checking stock at add-to-cart/order placement (today
+  add-to-cart only checks `IsAvailable`, `CartApplicationService.cs:54`). The
+  capture-time guard already prevents the oversell; this would just fail faster.
+
+### Verification note
+
+The decrement lives in `OrderRepository`, which is covered by the integration
+suite (needs `TEST_SQLSERVER_CONNECTION_STRING`), not the fake-based unit tests.
+Verify with an end-to-end capture against a real DB.
 
 ## Storefront implication
 
-Until fixed, the store cannot rely on the API to remove a sold Original. If you
-need correct sold-out behavior before the backend fix lands, the storefront would
-have to check `stats.stockQuantity` on the product detail — but the real fix
-belongs in checkout/inventory.
+The store can now rely on the API: a sold Original is removed from listings/detail
+(via `IsAvailable`), and the storefront may additionally badge "sold out" from
+`stats.stockQuantity` for snappier UX. That badge is display only — the actual
+oversell protection is the capture-time stock guard above.
