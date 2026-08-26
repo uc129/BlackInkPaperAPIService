@@ -14,8 +14,8 @@ OUTPUT_FILE = Path("Infrastructure/Persistence/Seeds/SeedIllustrationProducts.sq
 
 # Seed defaults — adjust as needed
 ARTIST_ID = 1
-CATEGORY_ID = 1          # Wall Art
-SUBCATEGORY_ID = 1       # Abstract
+CATEGORY_ID = 2          # Prints
+SUBCATEGORY_ID = 2       # Prints (default sub)
 BASE_PRICE = 1499.00
 FINAL_PRICE = 1199.00
 CURRENCY = "INR"

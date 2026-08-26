@@ -231,7 +231,15 @@ public record ArtSpecificationsDto(
     string? Material,
     string? FileFormat,
     int? ResolutionDpi,
-    string? PixelDimensions);
+    string? PixelDimensions,
+    // Original-artwork details (tools, paper, provenance)
+    string? PaperType = null,
+    string? PaperWeight = null,
+    string? InkType = null,
+    bool IsOriginal = false,
+    bool IsSigned = false,
+    bool HasCertificate = false,
+    string? FramingStatus = null);
 
 public record DimensionsDto(
     double Width,

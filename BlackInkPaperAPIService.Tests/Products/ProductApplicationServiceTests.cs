@@ -62,6 +62,58 @@ public class ProductApplicationServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_ReturnsFailure_WhenOriginalHasStockOtherThanOne()
+    {
+        var repository = new FakeProductRepository();
+        var service = new ProductApplicationService(repository);
+
+        var response = await service.CreateAsync(ProductTestData.OriginalCreateRequest(stockQuantity: 5));
+
+        Assert.False(response.Success);
+        Assert.Equal(400, response.StatusCode);
+        Assert.Contains("one available piece", response.Message);
+        Assert.Null(repository.AddedProduct);
+    }
+
+    [Fact]
+    public async Task CreateAsync_ReturnsFailure_WhenOriginalUsesStandardVariants()
+    {
+        var repository = new FakeProductRepository();
+        var service = new ProductApplicationService(repository);
+
+        var response = await service.CreateAsync(
+            ProductTestData.OriginalCreateRequest(stockQuantity: 1, isUsingStandardVariants: true));
+
+        Assert.False(response.Success);
+        Assert.Equal(400, response.StatusCode);
+        Assert.Contains("standard variants", response.Message);
+        Assert.Null(repository.AddedProduct);
+    }
+
+    [Fact]
+    public async Task CreateAsync_CreatesOriginal_WhenSinglePieceAndNoStandardVariants()
+    {
+        var created = ProductTestData.Aggregate(id: 202);
+        var repository = new FakeProductRepository
+        {
+            AddHandler = product =>
+            {
+                product.Id = 202;
+                return Task.FromResult(202);
+            },
+            GetByIdHandler = id => Task.FromResult(id == 202 ? created : null)
+        };
+        var service = new ProductApplicationService(repository);
+
+        var response = await service.CreateAsync(ProductTestData.OriginalCreateRequest(stockQuantity: 1));
+
+        Assert.True(response.Success);
+        Assert.NotNull(repository.AddedProduct);
+        Assert.True(repository.AddedProduct!.ArtSpecs.IsOriginal);
+        Assert.Equal(1, repository.AddedProduct.StockQuantity);
+    }
+
+    [Fact]
     public async Task SearchAsync_NormalizesPaging_AndReturnsSummaries()
     {
         var product = ProductTestData.Aggregate(id: 10);

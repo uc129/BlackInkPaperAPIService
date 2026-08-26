@@ -78,6 +78,19 @@ internal static class ProductTestData
                     ])
             ]);
 
+    public static CreateProductRequest OriginalCreateRequest(
+        int? stockQuantity = 1,
+        bool isUsingStandardVariants = false)
+    {
+        var request = CreateRequest();
+        return request with
+        {
+            StockQuantity = stockQuantity,
+            IsUsingStandardVariants = isUsingStandardVariants,
+            ArtSpecs = request.ArtSpecs! with { IsOriginal = true }
+        };
+    }
+
     public static UpdateProductRequest UpdateRequest(
         string productId = "ART-001-UPDATED",
         string slug = "sunset-art-updated",

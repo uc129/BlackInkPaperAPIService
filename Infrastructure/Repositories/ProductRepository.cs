@@ -783,7 +783,14 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 Material,
                 FileFormat,
                 ResolutionDpi,
-                PixelDimensions
+                PixelDimensions,
+                PaperType,
+                PaperWeight,
+                InkType,
+                IsOriginal,
+                IsSigned,
+                HasCertificate,
+                FramingStatus
             )
             VALUES
             (
@@ -796,7 +803,14 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 @Material,
                 @FileFormat,
                 @ResolutionDpi,
-                @PixelDimensions
+                @PixelDimensions,
+                @PaperType,
+                @PaperWeight,
+                @InkType,
+                @IsOriginal,
+                @IsSigned,
+                @HasCertificate,
+                @FramingStatus
             );
             """;
 
@@ -811,7 +825,14 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 Material = @Material,
                 FileFormat = @FileFormat,
                 ResolutionDpi = @ResolutionDpi,
-                PixelDimensions = @PixelDimensions
+                PixelDimensions = @PixelDimensions,
+                PaperType = @PaperType,
+                PaperWeight = @PaperWeight,
+                InkType = @InkType,
+                IsOriginal = @IsOriginal,
+                IsSigned = @IsSigned,
+                HasCertificate = @HasCertificate,
+                FramingStatus = @FramingStatus
             WHERE ProductId = @ProductId;
             """;
 

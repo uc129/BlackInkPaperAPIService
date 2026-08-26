@@ -229,11 +229,11 @@ public class ProductApplicationService(IProductRepository productRepository) : I
             return ServiceResponse<ProductResponseDto>.Fail($"SubCategory with id {request.SubCategoryId} does not exist.", statusCode: 400, errorCode: "validation_error");
         }
 
-        // var artSpecificationValidation = await ValidateArtSpecification(request.ArtSpecs);
-        // if (!artSpecificationValidation.Success)
-        // {
-        //     return artSpecificationValidation;
-        // }
+        var originalValidation = ValidateOriginalSinglePiece(request.ArtSpecs, request.StockQuantity, request.IsUsingStandardVariants);
+        if (!originalValidation.Success)
+        {
+            return originalValidation;
+        }
 
         if (await productRepository.ExistsBySlug(request.Slug.Trim()))
         {
@@ -279,11 +279,11 @@ public class ProductApplicationService(IProductRepository productRepository) : I
             return ServiceResponse<ProductResponseDto>.Fail($"SubCategory with id {request.SubCategoryId} does not exist.", statusCode: 400, errorCode: "validation_error");
         }
 
-        // var artSpecificationValidation = await ValidateArtSpecification(request.ArtSpecs);
-        // if (!artSpecificationValidation.Success)
-        // {
-        //     return artSpecificationValidation;
-        // }
+        var originalValidation = ValidateOriginalSinglePiece(request.ArtSpecs, request.StockQuantity, request.IsUsingStandardVariants);
+        if (!originalValidation.Success)
+        {
+            return originalValidation;
+        }
 
         if (await productRepository.ExistsBySlug(request.Slug.Trim(), id))
         {
@@ -345,11 +345,31 @@ public class ProductApplicationService(IProductRepository productRepository) : I
         return ServiceResponse<ProductResponseDto>.Ok(null!, "Validation passed.");
     }
 
-    private async Task<ServiceResponse<ProductResponseDto>> ValidateArtSpecification(ArtSpecificationsDto? artSpecs)
+    // Originals are unique physical pieces: exactly one available unit, never a standard-variant matrix.
+    private static ServiceResponse<ProductResponseDto> ValidateOriginalSinglePiece(
+        ArtSpecificationsDto? artSpecs,
+        int? stockQuantity,
+        bool isUsingStandardVariants)
     {
-        if (artSpecs is null)
+        if (artSpecs?.IsOriginal != true)
         {
-            return ServiceResponse<ProductResponseDto>.Fail("ArtSpecs is required.", statusCode: 400, errorCode: "validation_error");
+            return ServiceResponse<ProductResponseDto>.Ok(null!, "Validation passed.");
+        }
+
+        if (isUsingStandardVariants)
+        {
+            return ServiceResponse<ProductResponseDto>.Fail(
+                "Original artworks are a single unique piece and cannot use standard variants.",
+                statusCode: 400,
+                errorCode: "validation_error");
+        }
+
+        if (stockQuantity is not 1)
+        {
+            return ServiceResponse<ProductResponseDto>.Fail(
+                "Original artworks must have exactly one available piece (StockQuantity must be 1).",
+                statusCode: 400,
+                errorCode: "validation_error");
         }
 
         return ServiceResponse<ProductResponseDto>.Ok(null!, "Validation passed.");
