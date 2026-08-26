@@ -325,6 +325,11 @@ else
         if (!IsEdit && _vm.ArtistId <= 0)             return "Please select an artist.";
         if (_vm.CategoryId <= 0)                      return "Please select a category.";
         if (_vm.SubCategoryId <= 0)                   return "Please select a subcategory.";
+        if (_vm.IsOriginal)
+        {
+            if (_vm.UseStdVariants) return "Original artworks can't use standard variants — each original is a single unique piece.";
+            if (_vm.Stock is not 1) return "Original artworks must have exactly one available piece (stock = 1).";
+        }
         return null;
     }
 
