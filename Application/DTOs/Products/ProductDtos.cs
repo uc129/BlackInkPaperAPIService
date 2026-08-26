@@ -67,7 +67,8 @@ public record ProductSummaryDto(
     ProductTaxonomyDto Taxonomy,
     ProductMediaDto Media,
     ProductStatsDto Stats,
-    bool IsUsingStandardVariants);
+    bool IsUsingStandardVariants,
+    bool IsOriginal);
 
 public record ProductSearchRequest(
     string? Query,
@@ -77,6 +78,8 @@ public record ProductSearchRequest(
     int? TagId,
     bool? IsAvailable,
     bool? IsFeatured,
+    string? CategorySlug = null,
+    string? SubCategorySlug = null,
     int Page = 1,
     [Range(1, 100)] int PageSize = 20);
 

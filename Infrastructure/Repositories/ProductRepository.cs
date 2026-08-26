@@ -59,7 +59,8 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                     )
                 );
 
-            SELECT p.*
+            SELECT p.*,
+                COALESCE((SELECT specs.IsOriginal FROM ArtSpecifications specs WHERE specs.ProductId = p.Id LIMIT 1), FALSE) AS IsOriginal
             FROM Products p
             WHERE
                 (@Query IS NULL OR p.Name LIKE @LikeQuery OR p.ProductId LIKE @LikeQuery OR p.Slug LIKE @LikeQuery OR p.NameCode LIKE @LikeQuery)

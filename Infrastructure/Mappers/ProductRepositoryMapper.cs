@@ -45,6 +45,15 @@ public static class ProductRepositoryMapper
         List<ProductTag> tags,
         List<ProductVariantAggregate> variants)
     {
+        var artSpecs = ToArtSpecifications(artSpecifications);
+
+        // Search only carries the IsOriginal flag (via LEFT JOIN), not the full
+        // ArtSpecifications; surface it without clobbering a full spec load.
+        if (artSpecifications is null && row.IsOriginal is { } isOriginal)
+        {
+            artSpecs.IsOriginal = isOriginal;
+        }
+
         return new ProductAggregate
         {
             Id = row.Id,
@@ -73,7 +82,7 @@ public static class ProductRepositoryMapper
             UpdatedAt = row.UpdatedAt,
             UpdatedBy = row.UpdatedBy,
             IsUsingStandardVariants = row.IsUsingStandardVariants,
-            ArtSpecs = ToArtSpecifications(artSpecifications),
+            ArtSpecs = artSpecs,
             Images = images,
             Tags = tags,
             Variants = variants
@@ -167,6 +176,10 @@ public static class ProductRepositoryMapper
         public DateTime UpdatedAt { get; init; }
         public string UpdatedBy { get; init; } = string.Empty;
         public bool IsUsingStandardVariants { get; init; }
+
+        // Populated only by the search query (LEFT JOIN ArtSpecifications); null
+        // for reads that load ArtSpecifications separately.
+        public bool? IsOriginal { get; init; }
     }
 
     public sealed class ArtSpecificationsRow

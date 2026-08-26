@@ -149,6 +149,28 @@ public class ProductApplicationServiceTests
     }
 
     [Fact]
+    public async Task SearchAsync_ReturnsEmptyPage_WhenCategorySlugMatchesNothing()
+    {
+        var repository = new FakeProductRepository();
+        var service = new ProductApplicationService(repository);
+
+        var response = await service.SearchAsync(new Application.DTOs.Products.ProductSearchRequest(
+            Query: null,
+            ArtistId: null,
+            CategoryId: null,
+            SubCategoryId: null,
+            TagId: null,
+            IsAvailable: true,
+            IsFeatured: null,
+            CategorySlug: "originals"));
+
+        Assert.True(response.Success);
+        Assert.NotNull(response.Data);
+        Assert.Empty(response.Data!.Items);
+        Assert.Equal(0, response.Data.TotalCount);
+    }
+
+    [Fact]
     public async Task UpdateAsync_MapsRequestOntoExistingAggregate_AndPersists()
     {
         var existing = ProductTestData.Aggregate(id: 55);

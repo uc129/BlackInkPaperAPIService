@@ -56,11 +56,36 @@ public class ProductApplicationService(IProductRepository productRepository) : I
             var normalizedPage = Math.Max(request.Page, 1);
             var normalizedPageSize = Math.Clamp(request.PageSize, 1, 100);
 
+            // Resolve optional category/subcategory slugs (used by the storefront)
+            // to ids. A slug that matches nothing yields an empty page rather than
+            // an unfiltered result.
+            var categoryId = request.CategoryId;
+            if (categoryId is null && !string.IsNullOrWhiteSpace(request.CategorySlug))
+            {
+                var categories = await productRepository.GetCategories();
+                categoryId = categories.FirstOrDefault(c => string.Equals(c.Slug, request.CategorySlug.Trim(), StringComparison.OrdinalIgnoreCase))?.Id;
+                if (categoryId is null)
+                {
+                    return EmptyProductPage(normalizedPage, normalizedPageSize);
+                }
+            }
+
+            var subCategoryId = request.SubCategoryId;
+            if (subCategoryId is null && !string.IsNullOrWhiteSpace(request.SubCategorySlug))
+            {
+                var subCategories = await productRepository.GetSubCategories(categoryId);
+                subCategoryId = subCategories.FirstOrDefault(s => string.Equals(s.Slug, request.SubCategorySlug.Trim(), StringComparison.OrdinalIgnoreCase))?.Id;
+                if (subCategoryId is null)
+                {
+                    return EmptyProductPage(normalizedPage, normalizedPageSize);
+                }
+            }
+
             var (items, totalCount) = await productRepository.Search(
                 request.Query,
                 request.ArtistId,
-                request.CategoryId,
-                request.SubCategoryId,
+                categoryId,
+                subCategoryId,
                 request.TagId,
                 request.IsAvailable,
                 request.IsFeatured,
@@ -374,4 +399,8 @@ public class ProductApplicationService(IProductRepository productRepository) : I
 
         return ServiceResponse<ProductResponseDto>.Ok(null!, "Validation passed.");
     }
+
+    private static ServiceResponse<PagedResultDto<ProductSummaryDto>> EmptyProductPage(int page, int pageSize)
+        => ServiceResponse<PagedResultDto<ProductSummaryDto>>.Ok(
+            new PagedResultDto<ProductSummaryDto>([], page, pageSize, 0));
 }

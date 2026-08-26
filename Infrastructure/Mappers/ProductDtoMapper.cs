@@ -162,7 +162,8 @@ public static class ProductDtoMapper
                 product.AverageRating,
                 product.ReviewCount,
                 product.StockQuantity),
-            product.IsUsingStandardVariants);
+            product.IsUsingStandardVariants,
+            product.ArtSpecs.IsOriginal);
     }
 
     public static ProductImage ToImage(CreateProductImageDto image)
