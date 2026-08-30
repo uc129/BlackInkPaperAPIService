@@ -4,7 +4,7 @@ using Infrastructure.Contracts.Repositories;
 using Infrastructure.Contracts.Services;
 using Infrastructure.Configuration;
 using Infrastructure.Persistence;
-using Infrastructure.Persistence.Data_Seed;
+using Infrastructure.Persistence.Seeding;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -95,6 +95,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services.Configure<CheckoutPricingOptions>(builder.Configuration.GetSection("CheckoutPricing"));
 builder.Services.Configure<RazorpayOptions>(builder.Configuration.GetSection("Razorpay"));
 builder.Services.Configure<CloudinaryOptions>(builder.Configuration.GetSection(CloudinaryOptions.SectionName));
+builder.Services.Configure<ContactOptions>(builder.Configuration.GetSection(ContactOptions.SectionName));
 
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<ITokenBlackListRepo, TokenBlackListRepo>();
@@ -108,15 +109,21 @@ builder.Services.AddScoped<ICheckoutPricingService, CheckoutPricingService>();
 builder.Services.AddScoped<IProductApplicationService, ProductApplicationService>();
 builder.Services.AddScoped<IProductReferenceDataService, ProductReferenceDataService>();
 builder.Services.AddScoped<IAdminOrderService, AdminOrderService>();
+builder.Services.AddScoped<IContactRepository, ContactRepository>();
+builder.Services.AddScoped<IContactApplicationService, ContactApplicationService>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 builder.Services.AddScoped<IStorageService, CloudinaryStorageService>();
 
 builder.Services.Configure<SendGridOptions>(builder.Configuration.GetSection("SendGrid"));
+// Supplied out-of-band, never from appsettings: environment variable SendGrid__ApiKey
+// (an Azure App Setting in production). Falls back to StubEmailService when unset, so
+// local development works without a key and without sending real mail.
 var sendGridApiKey = builder.Configuration["SendGrid:ApiKey"];
 if (!string.IsNullOrWhiteSpace(sendGridApiKey))
     builder.Services.AddScoped<IEmailService, SendGridEmailService>();
 else
     builder.Services.AddScoped<IEmailService, StubEmailService>();
+builder.Services.AddScoped<ISeedRunner, SeedRunner>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddHttpClient<IRazorpayGateway, RazorpayGateway>((serviceProvider, client) =>
@@ -241,6 +248,26 @@ builder.Services.AddHttpLogging(logging =>
 // ─────────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
+// ── Database Seeding ──────────────────────────────────────────────────────────
+// Opt-in only: `dotnet run -- --seed` (or `--seed=catalog`) in Development. Never runs
+// on a normal boot, and never outside Development, so production can't be seeded by
+// accident. Goes through the same ISeedRunner as the /api/seed endpoints.
+var seedArg = args.FirstOrDefault(a => a == "--seed" || a.StartsWith("--seed=", StringComparison.Ordinal));
+if (seedArg is not null)
+{
+    if (!app.Environment.IsDevelopment())
+        throw new InvalidOperationException("--seed is only permitted in the Development environment.");
+
+    var setName = seedArg.Contains('=') ? seedArg.Split('=', 2)[1] : SeedSets.All;
+    using var seedScope = app.Services.CreateScope();
+    var report = await seedScope.ServiceProvider.GetRequiredService<ISeedRunner>().RunAsync(setName);
+
+    Console.WriteLine(report.Success
+        ? $"Seed '{report.Set}' completed: {string.Join(" -> ", report.StepsRun)}"
+        : $"Seed '{report.Set}' FAILED after [{string.Join(" -> ", report.StepsRun)}]: {report.Error}");
+    return report.Success ? 0 : 1;
+}
+
 // ── Middleware Pipeline ───────────────────────────────────────────────────────
 
 // Global exception handler — must be first so it wraps everything
@@ -277,3 +304,6 @@ app.MapControllerRoute(
     .WithStaticAssets();
 
 app.Run();
+
+// Reached only on graceful shutdown; --seed returns earlier with its own exit code.
+return 0;

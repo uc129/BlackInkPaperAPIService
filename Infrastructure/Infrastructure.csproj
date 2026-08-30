@@ -28,6 +28,10 @@
     <None Update="Persistence\Seeds\*.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- The seed runner applies schema scripts too, so they must reach the output folder. -->
+    <None Update="Persistence\Scripts\*.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
