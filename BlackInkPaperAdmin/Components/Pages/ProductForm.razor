@@ -245,6 +245,13 @@ else
         _vm.DimH        = p.ArtSpecs?.PhysicalDimensions?.Height;
         _vm.DimUnit     = p.ArtSpecs?.PhysicalDimensions?.Unit ?? "cm";
         _vm.ResDpi      = p.ArtSpecs?.ResolutionDpi;
+        _vm.PaperType      = p.ArtSpecs?.PaperType ?? "";
+        _vm.PaperWeight    = p.ArtSpecs?.PaperWeight ?? "";
+        _vm.InkType        = p.ArtSpecs?.InkType ?? "";
+        _vm.FramingStatus  = p.ArtSpecs?.FramingStatus ?? "";
+        _vm.IsOriginal     = p.ArtSpecs?.IsOriginal ?? false;
+        _vm.IsSigned       = p.ArtSpecs?.IsSigned ?? false;
+        _vm.HasCertificate = p.ArtSpecs?.HasCertificate ?? false;
         _vm.ArtistId    = p.ArtistId;
         _vm.CategoryId     = p.Taxonomy.CategoryId;
         _vm.SubCategoryId  = p.Taxonomy.SubCategoryId;
@@ -318,6 +325,11 @@ else
         if (!IsEdit && _vm.ArtistId <= 0)             return "Please select an artist.";
         if (_vm.CategoryId <= 0)                      return "Please select a category.";
         if (_vm.SubCategoryId <= 0)                   return "Please select a subcategory.";
+        if (_vm.IsOriginal)
+        {
+            if (_vm.UseStdVariants) return "Original artworks can't use standard variants — each original is a single unique piece.";
+            if (_vm.Stock is not 1) return "Original artworks must have exactly one available piece (stock = 1).";
+        }
         return null;
     }
 
@@ -467,7 +479,10 @@ else
     {
         if (string.IsNullOrWhiteSpace(_vm.Material) && string.IsNullOrWhiteSpace(_vm.FileFormat)
             && string.IsNullOrWhiteSpace(_vm.PixelDims) && !_vm.WeightGrams.HasValue
-            && !_vm.IsFramed.HasValue && !_vm.DimW.HasValue && !_vm.ResDpi.HasValue)
+            && !_vm.IsFramed.HasValue && !_vm.DimW.HasValue && !_vm.ResDpi.HasValue
+            && string.IsNullOrWhiteSpace(_vm.PaperType) && string.IsNullOrWhiteSpace(_vm.PaperWeight)
+            && string.IsNullOrWhiteSpace(_vm.InkType) && string.IsNullOrWhiteSpace(_vm.FramingStatus)
+            && !_vm.IsOriginal && !_vm.IsSigned && !_vm.HasCertificate)
             return null;
 
         DimensionsDto? dims = (_vm.DimW.HasValue && _vm.DimH.HasValue)
@@ -481,7 +496,14 @@ else
             Material:           Emp(_vm.Material),
             FileFormat:         Emp(_vm.FileFormat),
             ResolutionDpi:      _vm.ResDpi,
-            PixelDimensions:    Emp(_vm.PixelDims));
+            PixelDimensions:    Emp(_vm.PixelDims),
+            PaperType:          Emp(_vm.PaperType),
+            PaperWeight:        Emp(_vm.PaperWeight),
+            InkType:            Emp(_vm.InkType),
+            IsOriginal:         _vm.IsOriginal,
+            IsSigned:           _vm.IsSigned,
+            HasCertificate:     _vm.HasCertificate,
+            FramingStatus:      Emp(_vm.FramingStatus));
     }
 
     private List<CreateProductVariantDto> BuildCreateVariants() =>

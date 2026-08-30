@@ -59,7 +59,8 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                     )
                 );
 
-            SELECT p.*
+            SELECT p.*,
+                COALESCE((SELECT specs.IsOriginal FROM ArtSpecifications specs WHERE specs.ProductId = p.Id LIMIT 1), FALSE) AS IsOriginal
             FROM Products p
             WHERE
                 (@Query IS NULL OR p.Name LIKE @LikeQuery OR p.ProductId LIKE @LikeQuery OR p.Slug LIKE @LikeQuery OR p.NameCode LIKE @LikeQuery)
@@ -783,7 +784,14 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 Material,
                 FileFormat,
                 ResolutionDpi,
-                PixelDimensions
+                PixelDimensions,
+                PaperType,
+                PaperWeight,
+                InkType,
+                IsOriginal,
+                IsSigned,
+                HasCertificate,
+                FramingStatus
             )
             VALUES
             (
@@ -796,7 +804,14 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 @Material,
                 @FileFormat,
                 @ResolutionDpi,
-                @PixelDimensions
+                @PixelDimensions,
+                @PaperType,
+                @PaperWeight,
+                @InkType,
+                @IsOriginal,
+                @IsSigned,
+                @HasCertificate,
+                @FramingStatus
             );
             """;
 
@@ -811,7 +826,14 @@ public class ProductRepository(IDapperContext dapperContext) : IProductRepositor
                 Material = @Material,
                 FileFormat = @FileFormat,
                 ResolutionDpi = @ResolutionDpi,
-                PixelDimensions = @PixelDimensions
+                PixelDimensions = @PixelDimensions,
+                PaperType = @PaperType,
+                PaperWeight = @PaperWeight,
+                InkType = @InkType,
+                IsOriginal = @IsOriginal,
+                IsSigned = @IsSigned,
+                HasCertificate = @HasCertificate,
+                FramingStatus = @FramingStatus
             WHERE ProductId = @ProductId;
             """;
 

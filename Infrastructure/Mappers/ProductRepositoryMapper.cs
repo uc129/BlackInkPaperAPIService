@@ -45,6 +45,15 @@ public static class ProductRepositoryMapper
         List<ProductTag> tags,
         List<ProductVariantAggregate> variants)
     {
+        var artSpecs = ToArtSpecifications(artSpecifications);
+
+        // Search only carries the IsOriginal flag (via LEFT JOIN), not the full
+        // ArtSpecifications; surface it without clobbering a full spec load.
+        if (artSpecifications is null && row.IsOriginal is { } isOriginal)
+        {
+            artSpecs.IsOriginal = isOriginal;
+        }
+
         return new ProductAggregate
         {
             Id = row.Id,
@@ -73,7 +82,7 @@ public static class ProductRepositoryMapper
             UpdatedAt = row.UpdatedAt,
             UpdatedBy = row.UpdatedBy,
             IsUsingStandardVariants = row.IsUsingStandardVariants,
-            ArtSpecs = ToArtSpecifications(artSpecifications),
+            ArtSpecs = artSpecs,
             Images = images,
             Tags = tags,
             Variants = variants
@@ -93,6 +102,13 @@ public static class ProductRepositoryMapper
         parameters.Add("FileFormat", artSpecifications.FileFormat);
         parameters.Add("ResolutionDpi", artSpecifications.ResolutionDpi);
         parameters.Add("PixelDimensions", artSpecifications.PixelDimensions);
+        parameters.Add("PaperType", artSpecifications.PaperType);
+        parameters.Add("PaperWeight", artSpecifications.PaperWeight);
+        parameters.Add("InkType", artSpecifications.InkType);
+        parameters.Add("IsOriginal", artSpecifications.IsOriginal);
+        parameters.Add("IsSigned", artSpecifications.IsSigned);
+        parameters.Add("HasCertificate", artSpecifications.HasCertificate);
+        parameters.Add("FramingStatus", artSpecifications.FramingStatus);
         return parameters;
     }
 
@@ -118,7 +134,14 @@ public static class ProductRepositoryMapper
             Material = row.Material,
             FileFormat = row.FileFormat,
             ResolutionDpi = row.ResolutionDpi,
-            PixelDimensions = row.PixelDimensions
+            PixelDimensions = row.PixelDimensions,
+            PaperType = row.PaperType,
+            PaperWeight = row.PaperWeight,
+            InkType = row.InkType,
+            IsOriginal = row.IsOriginal,
+            IsSigned = row.IsSigned,
+            HasCertificate = row.HasCertificate,
+            FramingStatus = row.FramingStatus
         };
     }
 
@@ -153,6 +176,10 @@ public static class ProductRepositoryMapper
         public DateTime UpdatedAt { get; init; }
         public string UpdatedBy { get; init; } = string.Empty;
         public bool IsUsingStandardVariants { get; init; }
+
+        // Populated only by the search query (LEFT JOIN ArtSpecifications); null
+        // for reads that load ArtSpecifications separately.
+        public bool? IsOriginal { get; init; }
     }
 
     public sealed class ArtSpecificationsRow
@@ -167,5 +194,12 @@ public static class ProductRepositoryMapper
         public string? FileFormat { get; init; }
         public int? ResolutionDpi { get; init; }
         public string? PixelDimensions { get; init; }
+        public string? PaperType { get; init; }
+        public string? PaperWeight { get; init; }
+        public string? InkType { get; init; }
+        public bool IsOriginal { get; init; }
+        public bool IsSigned { get; init; }
+        public bool HasCertificate { get; init; }
+        public string? FramingStatus { get; init; }
     }
 }

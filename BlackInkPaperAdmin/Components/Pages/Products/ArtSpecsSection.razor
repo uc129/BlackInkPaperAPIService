@@ -76,6 +76,70 @@
                 </div>
             </div>
         </div>
+
+        <div class="section-head mt-4">
+            <div>
+                <h3 class="h-section">Original artwork details</h3>
+                <div class="meta">For one-of-a-kind originals — tools, paper and provenance.</div>
+            </div>
+        </div>
+        <div class="grid-2 mt-3">
+            <div class="field-block">
+                <label class="lbl">Paper type</label>
+                <div class="field">
+                    <input @bind="Vm.PaperType" @bind:after="NotifyChanged" placeholder="e.g. Hahnemühle Cotton Rag" />
+                </div>
+            </div>
+            <div class="field-block">
+                <label class="lbl">Paper weight</label>
+                <div class="field">
+                    <input @bind="Vm.PaperWeight" @bind:after="NotifyChanged" placeholder="e.g. 300 GSM" />
+                </div>
+            </div>
+        </div>
+        <div class="grid-2 mt-3">
+            <div class="field-block">
+                <label class="lbl">Ink / medium</label>
+                <div class="field">
+                    <input @bind="Vm.InkType" @bind:after="NotifyChanged" placeholder="e.g. India Ink, Watercolour" />
+                </div>
+            </div>
+            <div class="field-block">
+                <label class="lbl">Framing status</label>
+                <div class="field">
+                    <input @bind="Vm.FramingStatus" @bind:after="NotifyChanged" placeholder="e.g. Framed, Unframed, Mounted" />
+                </div>
+            </div>
+        </div>
+        <div class="grid-3 mt-3">
+            <div class="field-block">
+                <label class="lbl">Original piece</label>
+                <div style="margin-top:4px">
+                    <FlagToggle Val="@Vm.IsOriginal"
+                                Label="Original"
+                                Hint="A single unique piece (stock must be 1, no standard variants)."
+                                OnToggle="v => { Vm.IsOriginal = v; OnChanged.InvokeAsync(); }" />
+                </div>
+            </div>
+            <div class="field-block">
+                <label class="lbl">Signed</label>
+                <div style="margin-top:4px">
+                    <FlagToggle Val="@Vm.IsSigned"
+                                Label="Signed"
+                                Hint="Signed by the artist."
+                                OnToggle="v => { Vm.IsSigned = v; OnChanged.InvokeAsync(); }" />
+                </div>
+            </div>
+            <div class="field-block">
+                <label class="lbl">Certificate</label>
+                <div style="margin-top:4px">
+                    <FlagToggle Val="@Vm.HasCertificate"
+                                Label="Certificate of authenticity"
+                                Hint="Ships with a certificate of authenticity."
+                                OnToggle="v => { Vm.HasCertificate = v; OnChanged.InvokeAsync(); }" />
+                </div>
+            </div>
+        </div>
     </div>
 </section>
 

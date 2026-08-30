@@ -162,7 +162,8 @@ public static class ProductDtoMapper
                 product.AverageRating,
                 product.ReviewCount,
                 product.StockQuantity),
-            product.IsUsingStandardVariants);
+            product.IsUsingStandardVariants,
+            product.ArtSpecs.IsOriginal);
     }
 
     public static ProductImage ToImage(CreateProductImageDto image)
@@ -280,7 +281,14 @@ public static class ProductDtoMapper
             Material = artSpecs.Material?.Trim(),
             FileFormat = artSpecs.FileFormat?.Trim(),
             ResolutionDpi = artSpecs.ResolutionDpi,
-            PixelDimensions = artSpecs.PixelDimensions?.Trim()
+            PixelDimensions = artSpecs.PixelDimensions?.Trim(),
+            PaperType = artSpecs.PaperType?.Trim(),
+            PaperWeight = artSpecs.PaperWeight?.Trim(),
+            InkType = artSpecs.InkType?.Trim(),
+            IsOriginal = artSpecs.IsOriginal,
+            IsSigned = artSpecs.IsSigned,
+            HasCertificate = artSpecs.HasCertificate,
+            FramingStatus = artSpecs.FramingStatus?.Trim()
         };
     }
 
@@ -297,7 +305,14 @@ public static class ProductDtoMapper
             && artSpecs.Material is null
             && artSpecs.FileFormat is null
             && artSpecs.ResolutionDpi is null
-            && artSpecs.PixelDimensions is null)
+            && artSpecs.PixelDimensions is null
+            && artSpecs.PaperType is null
+            && artSpecs.PaperWeight is null
+            && artSpecs.InkType is null
+            && artSpecs.FramingStatus is null
+            && !artSpecs.IsOriginal
+            && !artSpecs.IsSigned
+            && !artSpecs.HasCertificate)
         {
             return null;
         }
@@ -314,7 +329,14 @@ public static class ProductDtoMapper
             artSpecs.Material,
             artSpecs.FileFormat,
             artSpecs.ResolutionDpi,
-            artSpecs.PixelDimensions);
+            artSpecs.PixelDimensions,
+            artSpecs.PaperType,
+            artSpecs.PaperWeight,
+            artSpecs.InkType,
+            artSpecs.IsOriginal,
+            artSpecs.IsSigned,
+            artSpecs.HasCertificate,
+            artSpecs.FramingStatus);
     }
 
     private static DimensionUnits ParseDimensionUnit(string? unit)

@@ -24,6 +24,15 @@ public sealed class ProductFormViewModel
     public string  DimUnit     { get; set; } = "cm";
     public int?    ResDpi      { get; set; }
 
+    // Original-artwork details (tools, paper, provenance)
+    public string PaperType      { get; set; } = "";
+    public string PaperWeight    { get; set; } = "";
+    public string InkType        { get; set; } = "";
+    public string FramingStatus  { get; set; } = "";
+    public bool   IsOriginal     { get; set; }
+    public bool   IsSigned       { get; set; }
+    public bool   HasCertificate { get; set; }
+
     public string CoverUrl  { get; set; } = "";
     public string HeaderUrl { get; set; } = "";
 

@@ -67,7 +67,8 @@ public record ProductSummaryDto(
     ProductTaxonomyDto Taxonomy,
     ProductMediaDto Media,
     ProductStatsDto Stats,
-    bool IsUsingStandardVariants);
+    bool IsUsingStandardVariants,
+    bool IsOriginal);
 
 public record ProductSearchRequest(
     string? Query,
@@ -77,6 +78,8 @@ public record ProductSearchRequest(
     int? TagId,
     bool? IsAvailable,
     bool? IsFeatured,
+    string? CategorySlug = null,
+    string? SubCategorySlug = null,
     int Page = 1,
     [Range(1, 100)] int PageSize = 20);
 
@@ -231,7 +234,15 @@ public record ArtSpecificationsDto(
     string? Material,
     string? FileFormat,
     int? ResolutionDpi,
-    string? PixelDimensions);
+    string? PixelDimensions,
+    // Original-artwork details (tools, paper, provenance)
+    string? PaperType = null,
+    string? PaperWeight = null,
+    string? InkType = null,
+    bool IsOriginal = false,
+    bool IsSigned = false,
+    bool HasCertificate = false,
+    string? FramingStatus = null);
 
 public record DimensionsDto(
     double Width,

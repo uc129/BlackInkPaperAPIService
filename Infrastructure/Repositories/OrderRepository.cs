@@ -711,11 +711,10 @@ public class OrderRepository(IDapperContext dapperContext) : IOrderRepository
             }
         }
 
-        if (item.FulfillmentType != ProductFulfillmentType.physical)
-        {
-            return;
-        }
-
+        // Product-level stock (used by no-variant items such as single-piece
+        // Originals, whose FulfillmentType is null because it is derived from
+        // variants). Untracked stock (NULL) — e.g. digital downloads — is skipped
+        // by the HasValue guard below rather than by fulfillment type.
         var productStock = await connection.ExecuteScalarAsync<int?>(
             "SELECT StockQuantity FROM Products WHERE Id = @Id;",
             new { Id = item.ProductDbId },
@@ -739,6 +738,17 @@ public class OrderRepository(IDapperContext dapperContext) : IOrderRepository
         {
             throw new InvalidOperationException($"Insufficient stock for product {item.ProductDbId}.");
         }
+
+        // Sold out: take the product out of the storefront (public queries filter
+        // on IsAvailable). Matters most for single-piece Originals.
+        await connection.ExecuteAsync(
+            """
+            UPDATE Products
+            SET IsAvailable = FALSE
+            WHERE Id = @Id AND StockQuantity <= 0;
+            """,
+            new { Id = item.ProductDbId },
+            transaction);
 
         await connection.ExecuteAsync(
             """

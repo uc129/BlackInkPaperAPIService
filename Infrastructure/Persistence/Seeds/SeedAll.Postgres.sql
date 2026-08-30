@@ -9,22 +9,25 @@ OVERRIDING SYSTEM VALUE
 VALUES
 (1, 'user-artist', 'Aarav Kapoor', 'Mixed media and digital print artist.', 'https://cdn.example.com/artists/aarav/profile.jpg', 'https://cdn.example.com/artists/aarav/cover.jpg', 'https://instagram.com/aaravkapoorart', 'https://portfolio.blackinkpaper.local/aarav', 'https://aaravkapoor.art', TRUE, 42, CURRENT_TIMESTAMP - INTERVAL '180 days', CURRENT_TIMESTAMP);
 
--- 2. Seed ProductCategories
+-- 2. Seed ProductCategories (top-level: Originals & Prints)
 INSERT INTO ProductCategories
 (Id, NameCode, Name, PrintName, Description, IsActive, IsFeatured, Slug, CoverImageUrl)
 OVERRIDING SYSTEM VALUE
 VALUES
-(1, 'WALL_ART', 'Wall Art', 'Wall Art', 'Framed and unframed wall pieces.', TRUE, TRUE, 'wall-art', 'https://cdn.example.com/categories/wall-art.jpg'),
-(2, 'DIGITAL_PRINTS', 'Digital Prints', 'Digital Prints', 'Downloadable art and print-ready assets.', TRUE, FALSE, 'digital-prints', 'https://cdn.example.com/categories/digital-prints.jpg');
+(1, 'ORIGINALS', 'Originals', 'Originals', 'One-of-a-kind original artworks — a single available piece per artwork.', TRUE, TRUE, 'originals', 'https://cdn.example.com/categories/originals.jpg'),
+(2, 'PRINTS', 'Prints', 'Prints', 'Fine art prints and digital downloads.', TRUE, TRUE, 'prints', 'https://cdn.example.com/categories/prints.jpg');
 
 -- 3. Seed ProductSubCategories
+--    Originals holds commissioned one-off pieces; Prints holds the themed
+--    print collections. Mirrors the live catalogue taxonomy.
 INSERT INTO ProductSubCategories
 (Id, CategoryId, NameCode, Name, PrintName, Description, IsActive, IsFeatured, Slug, CoverImageUrl)
 OVERRIDING SYSTEM VALUE
 VALUES
-(1, 1, 'ABSTRACT', 'Abstract', 'Abstract', 'Abstract wall art collection.', TRUE, TRUE, 'abstract', 'https://cdn.example.com/subcategories/abstract.jpg'),
-(2, 1, 'BOTANICAL', 'Botanical', 'Botanical', 'Botanical themed wall art.', TRUE, FALSE, 'botanical', 'https://cdn.example.com/subcategories/botanical.jpg'),
-(3, 2, 'POSTERS', 'Posters', 'Posters', 'Printable posters and digital posters.', TRUE, FALSE, 'posters', 'https://cdn.example.com/subcategories/posters.jpg');
+(1, 1, 'COMMISSIONS', 'Commissions', 'Commissions', 'Commissioned one-of-a-kind pieces (custom and pet portraits).', TRUE, TRUE, 'commissions', 'https://cdn.example.com/subcategories/commissions.jpg'),
+(2, 2, 'BLACK_AND_WHITE', 'Black & White', 'Black & White', 'Monochrome and abstract black & white prints.', TRUE, TRUE, 'black-and-white', 'https://cdn.example.com/subcategories/black-and-white.jpg'),
+(3, 2, 'CITYSCAPES', 'Cityscapes', 'Cityscapes', 'Urban scenes and architectural studies.', TRUE, FALSE, 'cityscapes', 'https://cdn.example.com/subcategories/cityscapes.jpg'),
+(4, 2, 'TRAVEL_ART', 'Travel Art', 'Travel Art', 'Travel-inspired and cultural scene prints.', TRUE, FALSE, 'travel-art', 'https://cdn.example.com/subcategories/travel-art.jpg');
 
 -- 4. Seed ProductTags
 INSERT INTO ProductTags
@@ -58,15 +61,17 @@ INSERT INTO Products
 (Id, ArtistId, ProductId, Name, Slug, NameCode, PrintName, Description, ShortDescription, BasePrice, FinalPrice, CurrencyCode, CategoryId, SubCategoryId, IsFeatured, IsAvailable, CoverImageUrl, HeaderImageUrl, AverageRating, ReviewCount, StockQuantity, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy, IsUsingStandardVariants)
 OVERRIDING SYSTEM VALUE
 VALUES
-(1, 1, 'BIP-ABS-001', 'Silent Geometry', 'silent-geometry', 'SILENT_GEOMETRY', 'Silent Geometry', 'A textured abstract composition designed for statement walls.', 'Abstract statement print.', 2499.00, 2199.00, 'INR', 1, 1, TRUE, TRUE, 'https://cdn.example.com/products/silent-geometry/cover.jpg', 'https://cdn.example.com/products/silent-geometry/header.jpg', 4.8, 12, 15, CURRENT_TIMESTAMP - INTERVAL '14 days', 'seed', CURRENT_TIMESTAMP, 'seed', TRUE),
-(2, 1, 'BIP-DGT-002', 'Botanical Study Pack', 'botanical-study-pack', 'BOTANICAL_STUDY_PACK', 'Botanical Study Pack', 'A digital botanical poster set prepared for home and studio printing.', 'Printable botanical poster set.', 1299.00, 999.00, 'INR', 2, 3, FALSE, TRUE, 'https://cdn.example.com/products/botanical-study-pack/cover.jpg', 'https://cdn.example.com/products/botanical-study-pack/header.jpg', 4.5, 6, NULL, CURRENT_TIMESTAMP - INTERVAL '10 days', 'seed', CURRENT_TIMESTAMP, 'seed', TRUE);
+(1, 1, 'BIP-ABS-001', 'Silent Geometry', 'silent-geometry', 'SILENT_GEOMETRY', 'Silent Geometry', 'A textured abstract composition designed for statement walls.', 'Abstract statement print.', 2499.00, 2199.00, 'INR', 2, 2, TRUE, TRUE, 'https://cdn.example.com/products/silent-geometry/cover.jpg', 'https://cdn.example.com/products/silent-geometry/header.jpg', 4.8, 12, 15, CURRENT_TIMESTAMP - INTERVAL '14 days', 'seed', CURRENT_TIMESTAMP, 'seed', TRUE),
+(2, 1, 'BIP-DGT-002', 'Botanical Study Pack', 'botanical-study-pack', 'BOTANICAL_STUDY_PACK', 'Botanical Study Pack', 'A digital botanical poster set prepared for home and studio printing.', 'Printable botanical poster set.', 1299.00, 999.00, 'INR', 2, 4, FALSE, TRUE, 'https://cdn.example.com/products/botanical-study-pack/cover.jpg', 'https://cdn.example.com/products/botanical-study-pack/header.jpg', 4.5, 6, NULL, CURRENT_TIMESTAMP - INTERVAL '10 days', 'seed', CURRENT_TIMESTAMP, 'seed', TRUE),
+(3, 1, 'BIP-ORG-003', 'Ephemeral Ink Study', 'ephemeral-ink-study', 'EPHEMERAL_INK_STUDY', 'Ephemeral Ink Study', 'An original hand-inked study on cotton rag paper — a single, signed, one-of-a-kind piece.', 'Original signed ink study.', 8999.00, 8999.00, 'INR', 1, 1, TRUE, TRUE, 'https://cdn.example.com/products/ephemeral-ink-study/cover.jpg', 'https://cdn.example.com/products/ephemeral-ink-study/header.jpg', 5.0, 3, 1, CURRENT_TIMESTAMP - INTERVAL '7 days', 'seed', CURRENT_TIMESTAMP, 'seed', FALSE);
 
 -- 8. Seed ArtSpecifications
 INSERT INTO ArtSpecifications
 (ProductId, Width, Height, Unit, WeightGrams, IsFramed, Material, FileFormat, ResolutionDpi, PixelDimensions, PaperType, PaperWeight, InkType, IsOriginal, IsSigned, HasCertificate, FramingStatus, CreatedAt, UpdatedAt)
 VALUES
 (1, 42.0, 59.4, 'cm', 850, TRUE, 'Cotton Rag Paper', NULL, NULL, NULL, 'Cotton Rag', '310 GSM', 'Archival Pigment', FALSE, TRUE, TRUE, 'Framed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-(2, NULL, NULL, 'cm', NULL, NULL, NULL, 'PDF', 300, '4961x7016', 'Digital', NULL, NULL, FALSE, FALSE, FALSE, 'Unframed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+(2, NULL, NULL, 'cm', NULL, NULL, NULL, 'PDF', 300, '4961x7016', 'Digital', NULL, NULL, FALSE, FALSE, FALSE, 'Unframed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(3, 29.7, 42.0, 'cm', 320, FALSE, 'Cotton Rag Paper', NULL, NULL, NULL, 'Hahnemühle Cotton Rag', '300 GSM', 'India Ink', TRUE, TRUE, TRUE, 'Unframed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- 9. Seed ProductVariants
 INSERT INTO ProductVariants

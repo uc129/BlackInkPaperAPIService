@@ -56,11 +56,36 @@ public class ProductApplicationService(IProductRepository productRepository) : I
             var normalizedPage = Math.Max(request.Page, 1);
             var normalizedPageSize = Math.Clamp(request.PageSize, 1, 100);
 
+            // Resolve optional category/subcategory slugs (used by the storefront)
+            // to ids. A slug that matches nothing yields an empty page rather than
+            // an unfiltered result.
+            var categoryId = request.CategoryId;
+            if (categoryId is null && !string.IsNullOrWhiteSpace(request.CategorySlug))
+            {
+                var categories = await productRepository.GetCategories();
+                categoryId = categories.FirstOrDefault(c => string.Equals(c.Slug, request.CategorySlug.Trim(), StringComparison.OrdinalIgnoreCase))?.Id;
+                if (categoryId is null)
+                {
+                    return EmptyProductPage(normalizedPage, normalizedPageSize);
+                }
+            }
+
+            var subCategoryId = request.SubCategoryId;
+            if (subCategoryId is null && !string.IsNullOrWhiteSpace(request.SubCategorySlug))
+            {
+                var subCategories = await productRepository.GetSubCategories(categoryId);
+                subCategoryId = subCategories.FirstOrDefault(s => string.Equals(s.Slug, request.SubCategorySlug.Trim(), StringComparison.OrdinalIgnoreCase))?.Id;
+                if (subCategoryId is null)
+                {
+                    return EmptyProductPage(normalizedPage, normalizedPageSize);
+                }
+            }
+
             var (items, totalCount) = await productRepository.Search(
                 request.Query,
                 request.ArtistId,
-                request.CategoryId,
-                request.SubCategoryId,
+                categoryId,
+                subCategoryId,
                 request.TagId,
                 request.IsAvailable,
                 request.IsFeatured,
@@ -229,11 +254,11 @@ public class ProductApplicationService(IProductRepository productRepository) : I
             return ServiceResponse<ProductResponseDto>.Fail($"SubCategory with id {request.SubCategoryId} does not exist.", statusCode: 400, errorCode: "validation_error");
         }
 
-        // var artSpecificationValidation = await ValidateArtSpecification(request.ArtSpecs);
-        // if (!artSpecificationValidation.Success)
-        // {
-        //     return artSpecificationValidation;
-        // }
+        var originalValidation = ValidateOriginalSinglePiece(request.ArtSpecs, request.StockQuantity, request.IsUsingStandardVariants);
+        if (!originalValidation.Success)
+        {
+            return originalValidation;
+        }
 
         if (await productRepository.ExistsBySlug(request.Slug.Trim()))
         {
@@ -279,11 +304,11 @@ public class ProductApplicationService(IProductRepository productRepository) : I
             return ServiceResponse<ProductResponseDto>.Fail($"SubCategory with id {request.SubCategoryId} does not exist.", statusCode: 400, errorCode: "validation_error");
         }
 
-        // var artSpecificationValidation = await ValidateArtSpecification(request.ArtSpecs);
-        // if (!artSpecificationValidation.Success)
-        // {
-        //     return artSpecificationValidation;
-        // }
+        var originalValidation = ValidateOriginalSinglePiece(request.ArtSpecs, request.StockQuantity, request.IsUsingStandardVariants);
+        if (!originalValidation.Success)
+        {
+            return originalValidation;
+        }
 
         if (await productRepository.ExistsBySlug(request.Slug.Trim(), id))
         {
@@ -345,13 +370,37 @@ public class ProductApplicationService(IProductRepository productRepository) : I
         return ServiceResponse<ProductResponseDto>.Ok(null!, "Validation passed.");
     }
 
-    private async Task<ServiceResponse<ProductResponseDto>> ValidateArtSpecification(ArtSpecificationsDto? artSpecs)
+    // Originals are unique physical pieces: exactly one available unit, never a standard-variant matrix.
+    private static ServiceResponse<ProductResponseDto> ValidateOriginalSinglePiece(
+        ArtSpecificationsDto? artSpecs,
+        int? stockQuantity,
+        bool isUsingStandardVariants)
     {
-        if (artSpecs is null)
+        if (artSpecs?.IsOriginal != true)
         {
-            return ServiceResponse<ProductResponseDto>.Fail("ArtSpecs is required.", statusCode: 400, errorCode: "validation_error");
+            return ServiceResponse<ProductResponseDto>.Ok(null!, "Validation passed.");
+        }
+
+        if (isUsingStandardVariants)
+        {
+            return ServiceResponse<ProductResponseDto>.Fail(
+                "Original artworks are a single unique piece and cannot use standard variants.",
+                statusCode: 400,
+                errorCode: "validation_error");
+        }
+
+        if (stockQuantity is not 1)
+        {
+            return ServiceResponse<ProductResponseDto>.Fail(
+                "Original artworks must have exactly one available piece (StockQuantity must be 1).",
+                statusCode: 400,
+                errorCode: "validation_error");
         }
 
         return ServiceResponse<ProductResponseDto>.Ok(null!, "Validation passed.");
     }
+
+    private static ServiceResponse<PagedResultDto<ProductSummaryDto>> EmptyProductPage(int page, int pageSize)
+        => ServiceResponse<PagedResultDto<ProductSummaryDto>>.Ok(
+            new PagedResultDto<ProductSummaryDto>([], page, pageSize, 0));
 }
