@@ -14,6 +14,51 @@ and silently falls back to `StubEmailService` — mail stops sending, with no er
       blanking the file does not unring that. Generate a new key in SendGrid, put the new one
       in Azure, then revoke the old.
 
+## Phone login and WhatsApp notifications — external prerequisites
+
+The code is in place and runs locally against logging stubs, but **not one real message can be
+sent until these clear**, and each has a lead time measured in weeks. Nothing here is a code
+task.
+
+- [ ] **TRAI DLT registration** (via MSG91): register the entity, a 6-character sender header
+      (`Msg91:SmsSenderId`), and the OTP template (`Msg91:Templates:OtpSms`). Until this is
+      done the SMS fallback is dead, so a customer whose WhatsApp fails cannot log in.
+- [ ] **Meta Business verification + WABA**, then template approval:
+      `otp_login` (AUTHENTICATION); `order_confirmed`, `order_shipped`, `order_delivered`,
+      `order_cancelled`, `payment_failed` (UTILITY).
+- [ ] **Add `Msg91__AuthKey` to Azure App Settings** — double underscore, same convention as
+      `SendGrid__ApiKey`. While it is unset the API silently uses the logging senders and
+      sends nothing, exactly as SendGrid falls back to `StubEmailService`.
+- [ ] **Optionally set `Otp__HashKey`.** Unset, it falls back to `Jwt:Key` — which means
+      rotating the JWT key also invalidates every OTP in flight (harmless; they expire in
+      minutes).
+- [ ] **Verify the MSG91 wire format.** `Msg91WhatsAppSender` and `Msg91SmsSender` were written
+      without access to MSG91's API reference — the endpoint paths and request bodies are
+      marked `!! UNVERIFIED WIRE FORMAT !!` in both files and must be checked against the real
+      docs before the first live send.
+
+**Recommended launch order:** ship WhatsApp-only OTP once the auth template is approved, and
+keep email login visible as the recovery path. Do not go phone-only before DLT clears.
+
+### Pre-flight before the identity migrations touch production
+
+`AddPhoneIdentityFieldsAndUniqueEmailIndex` drops Identity's `EmailIndex` and replaces it with
+a UNIQUE filtered index; `AddUniquePhoneNumberIndex` adds one on `PhoneNumber`. Both fail on
+existing duplicates, and this database has drifted before.
+
+- [ ] Check for duplicates first — each must return no rows:
+      ```sql
+      SELECT "NormalizedEmail", COUNT(*) FROM "Users"
+      WHERE "NormalizedEmail" IS NOT NULL GROUP BY 1 HAVING COUNT(*) > 1;
+
+      SELECT "PhoneNumber", COUNT(*) FROM "Users"
+      WHERE "PhoneNumber" IS NOT NULL GROUP BY 1 HAVING COUNT(*) > 1;
+      ```
+- [ ] Confirm the existing index really is named `EmailIndex` there (`\d "Users"`).
+- [ ] Existing `PhoneNumber` values were never normalized to E.164. Anything already stored in
+      a local format will not match a phone login for the same number — normalize the column
+      as part of the rollout, or accept that those users keep signing in by email.
+
 ### Other credentials still committed in `appsettings.json`
 
 These predate this work and remain in git history. Rotating them means updating Azure App

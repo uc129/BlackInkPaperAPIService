@@ -15,7 +15,8 @@ public class CheckoutApplicationService(
     IShippingAddressRepository shippingAddressRepository,
     IOrderRepository orderRepository,
     ICheckoutPricingService checkoutPricingService,
-    IRazorpayGateway razorpayGateway) : ICheckoutApplicationService
+    IRazorpayGateway razorpayGateway,
+    IOrderNotificationService orderNotifications) : ICheckoutApplicationService
 {
     public async Task<ServiceResponse<IReadOnlyList<ShippingAddressDto>>> GetAddressesAsync(string userId, CancellationToken cancellationToken = default)
     {
@@ -242,6 +243,10 @@ public class CheckoutApplicationService(
                 {
                     await cartRepository.ClearCart(cart.Id);
                 }
+
+                // Deduplicated against the webhook, which reports the same capture — see the
+                // dedupe_key unique constraint on notification_deliveries.
+                await orderNotifications.EnqueueAsync(order, OrderNotificationEvent.Confirmed, CancellationToken.None);
             }
             else if (string.Equals(payment.Status, "authorized", StringComparison.OrdinalIgnoreCase))
             {
@@ -250,6 +255,7 @@ public class CheckoutApplicationService(
             else
             {
                 await orderRepository.MarkPaymentFailed(order.Id, payment.Id, $"Razorpay payment status: {payment.Status}", updatedAt);
+                await orderNotifications.EnqueueAsync(order, OrderNotificationEvent.PaymentFailed, CancellationToken.None);
             }
 
             var savedOrder = await orderRepository.GetById(order.Id, userId);
@@ -325,10 +331,16 @@ public class CheckoutApplicationService(
                     if (!string.IsNullOrWhiteSpace(razorpayPaymentId))
                     {
                         await orderRepository.MarkPaymentCapturedAndApplyInventory(order.Id, razorpayPaymentId, null, paymentMethod, now, now);
+
+                        // The other half of the duplicate: verify-payment enqueues the same
+                        // event when the client confirms. Whichever arrives second is
+                        // dropped by the dedupe key rather than sending a second message.
+                        await orderNotifications.EnqueueAsync(order, OrderNotificationEvent.Confirmed, CancellationToken.None);
                     }
                     break;
                 case "payment.failed":
                     await orderRepository.MarkPaymentFailed(order.Id, razorpayPaymentId, "Razorpay webhook reported payment failure.", now);
+                    await orderNotifications.EnqueueAsync(order, OrderNotificationEvent.PaymentFailed, CancellationToken.None);
                     break;
             }
 
@@ -436,9 +448,11 @@ public class CheckoutApplicationService(
                     statusCode: 400, errorCode: "order_not_cancellable");
 
             var updated = await orderRepository.UpdateStatusAsync(orderId, "Cancelled", DateTime.UtcNow, cancellationToken);
-            return updated
-                ? ServiceResponse<bool>.Ok(true, "Order cancelled successfully.")
-                : ServiceResponse<bool>.Fail("Failed to cancel order.", statusCode: 500, errorCode: "order_cancel_failed");
+            if (!updated)
+                return ServiceResponse<bool>.Fail("Failed to cancel order.", statusCode: 500, errorCode: "order_cancel_failed");
+
+            await orderNotifications.EnqueueAsync(order, OrderNotificationEvent.Cancelled, CancellationToken.None);
+            return ServiceResponse<bool>.Ok(true, "Order cancelled successfully.");
         }
         catch (Exception ex)
         {

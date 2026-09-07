@@ -42,6 +42,7 @@ public static class SeedSets
         new("Originals/Prints restructure", SeedStepKind.SqlSchema, "20260826_RestructureCategoriesOriginalsPrints.sql"),
         new("Contact submissions", SeedStepKind.SqlSchema, "20260830_AddContactSubmissions.sql"),
         new("One art-specification row per product", SeedStepKind.SqlSchema, "20260831_UniqueArtSpecificationsPerProduct.sql"),
+        new("Phone verification and notification outbox", SeedStepKind.SqlSchema, "20260901_AddPhoneVerificationAndNotifications.sql"),
     ];
 
     private static readonly SeedStep Users = new("Roles and users", SeedStepKind.IdentityData);

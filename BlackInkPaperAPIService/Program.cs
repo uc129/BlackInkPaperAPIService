@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using BlackInkPaperAPIService.BackgroundServices;
 using BlackInkPaperAPIService.Middleware;
 using Infrastructure.Contracts.Repositories;
 using Infrastructure.Contracts.Services;
@@ -52,7 +53,12 @@ builder.Services.AddIdentity<AppIdentityUser, IdentityRole>(options =>
 {
     options.Password.RequireDigit      = true;
     options.Password.RequiredLength    = 8;
-    options.User.RequireUniqueEmail    = true;
+
+    // Must stay false: Identity's UserValidator treats a blank email as InvalidEmail when
+    // this is on, which would reject every phone-only account at CreateAsync. Email
+    // uniqueness is instead enforced by a unique partial index on NormalizedEmail (see the
+    // AddUniqueEmailIndex migration) plus an explicit check in the register/link paths.
+    options.User.RequireUniqueEmail    = false;
 })
 .AddEntityFrameworkStores<AppIdentityDbContext>()
 .AddDefaultTokenProviders();
@@ -123,6 +129,50 @@ if (!string.IsNullOrWhiteSpace(sendGridApiKey))
     builder.Services.AddScoped<IEmailService, SendGridEmailService>();
 else
     builder.Services.AddScoped<IEmailService, StubEmailService>();
+// ── Phone auth and messaging ──────────────────────────────────────────────────
+builder.Services.Configure<OtpOptions>(builder.Configuration.GetSection(OtpOptions.SectionName));
+builder.Services.PostConfigure<OtpOptions>(o =>
+{
+    // The OTP HMAC wants its own secret (Otp__HashKey), but falling back to the JWT key keeps
+    // local development working with no extra configuration. Both are secrets of the same
+    // grade, and a leaked OTP hash is worth little — the codes expire in minutes.
+    if (string.IsNullOrWhiteSpace(o.HashKey))
+        o.HashKey = builder.Configuration["Jwt:Key"]
+            ?? throw new InvalidOperationException("Neither Otp:HashKey nor Jwt:Key is configured.");
+});
+
+builder.Services.Configure<Msg91Options>(builder.Configuration.GetSection(Msg91Options.SectionName));
+builder.Services.AddScoped<IOtpCodeHasher, OtpCodeHasher>();
+builder.Services.AddScoped<IPhoneVerificationRepository, PhoneVerificationRepository>();
+builder.Services.AddScoped<IOtpDeliveryService, OtpDeliveryService>();
+builder.Services.AddScoped<IPhoneAuthService, PhoneAuthService>();
+builder.Services.AddScoped<INotificationOutboxRepository, NotificationOutboxRepository>();
+builder.Services.AddScoped<IOrderNotificationService, OrderNotificationService>();
+builder.Services.AddHostedService<NotificationDispatcher>();
+
+// Supplied out-of-band, never from appsettings: environment variable Msg91__AuthKey.
+// Falls back to the logging senders when unset, so local development runs the whole phone
+// login flow without a vendor account — the code is read from the console instead.
+var msg91AuthKey = builder.Configuration["Msg91:AuthKey"];
+if (!string.IsNullOrWhiteSpace(msg91AuthKey))
+{
+    builder.Services.AddHttpClient<IWhatsAppSender, Msg91WhatsAppSender>(ConfigureMsg91Client);
+    builder.Services.AddHttpClient<ISmsSender, Msg91SmsSender>(ConfigureMsg91Client);
+
+    static void ConfigureMsg91Client(IServiceProvider serviceProvider, HttpClient client)
+    {
+        var options = serviceProvider
+            .GetRequiredService<Microsoft.Extensions.Options.IOptions<Msg91Options>>().Value;
+        client.BaseAddress = new Uri(options.BaseUrl);
+        client.Timeout = TimeSpan.FromSeconds(15);
+    }
+}
+else
+{
+    builder.Services.AddScoped<IWhatsAppSender, LoggingWhatsAppSender>();
+    builder.Services.AddScoped<ISmsSender, LoggingSmsSender>();
+}
+
 builder.Services.AddScoped<ISeedRunner, SeedRunner>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
@@ -157,22 +207,43 @@ builder.Services.AddAuthentication(options =>
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
 builder.Services.AddRateLimiter(options =>
 {
-    // auth endpoints: 5 requests per minute per IP (brute-force protection)
-    options.AddFixedWindowLimiter("auth", o =>
-    {
-        o.PermitLimit             = 5;
-        o.Window                  = TimeSpan.FromMinutes(1);
-        o.QueueProcessingOrder    = QueueProcessingOrder.OldestFirst;
-        o.QueueLimit              = 0;
-    });
+    // auth endpoints: 5 requests per minute per IP (brute-force protection).
+    // AddFixedWindowLimiter(name, ...) would create ONE limiter shared by every caller —
+    // 5 requests/minute for the whole API rather than per client. AddPolicy with an
+    // explicit partition key is what actually gives per-IP limiting.
+    options.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit          = 5,
+            Window               = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit           = 0,
+        }));
+
+    // OTP sends: a coarse per-IP ceiling only. The limit that actually protects the SMS bill
+    // is per phone number, and it cannot live here — the partition key is resolved before the
+    // request body is read, so the number is not known yet. PhoneVerificationService enforces
+    // it against phone_verification_codes instead, which also survives restarts and holds
+    // across multiple instances.
+    options.AddPolicy("otp", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit          = 10,
+            Window               = TimeSpan.FromMinutes(10),
+            QueueLimit           = 0,
+        }));
 
     // storage signing: 10 requests per minute per IP
-    options.AddFixedWindowLimiter("storage", o =>
-    {
-        o.PermitLimit             = 10;
-        o.Window                  = TimeSpan.FromMinutes(1);
-        o.QueueLimit              = 0;
-    });
+    options.AddPolicy("storage", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window      = TimeSpan.FromMinutes(1),
+            QueueLimit  = 0,
+        }));
 
     // global fallback: 120 requests per minute per IP
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
