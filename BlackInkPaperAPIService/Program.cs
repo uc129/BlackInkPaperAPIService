@@ -1,9 +1,10 @@
-using Asp.Versioning;
+﻿using Asp.Versioning;
 using BlackInkPaperAPIService.BackgroundServices;
 using BlackInkPaperAPIService.Middleware;
 using Infrastructure.Contracts.Repositories;
 using Infrastructure.Contracts.Services;
 using Infrastructure.Configuration;
+using Infrastructure.Services.Email;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Seeding;
 using Infrastructure.Repositories;
@@ -17,6 +18,7 @@ using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using BlackInkPaperAPIService.Swagger;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -119,6 +121,10 @@ builder.Services.AddScoped<IContactRepository, ContactRepository>();
 builder.Services.AddScoped<IContactApplicationService, ContactApplicationService>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 builder.Services.AddScoped<IStorageService, CloudinaryStorageService>();
+
+// Storefront address, used only to build the links in account emails.
+builder.Services.Configure<FrontendOptions>(builder.Configuration.GetSection(FrontendOptions.SectionName));
+builder.Services.AddScoped<AccountLinkBuilder>();
 
 builder.Services.Configure<SendGridOptions>(builder.Configuration.GetSection("SendGrid"));
 // Supplied out-of-band, never from appsettings: environment variable SendGrid__ApiKey
@@ -269,6 +275,18 @@ builder.Services.AddSwaggerGen(c =>
         Description = "Admin + storefront API for Black Ink Paper"
     });
 
+    // Every response goes through ToApiResult, which wraps success in ServiceResponse<T> and
+    // returns ProblemDetails on failure. The controller annotations name only the payload, so
+    // without this filter the document describes `data` instead of the body.
+    c.OperationFilter<ServiceResponseEnvelopeFilter>();
+
+    // Controller and DTO <summary> docs. Missing files are skipped rather than thrown on, so a
+    // project that has not enabled GenerateDocumentationFile cannot break swagger generation.
+    foreach (var xml in Directory.GetFiles(AppContext.BaseDirectory, "*.xml"))
+    {
+        c.IncludeXmlComments(xml, includeControllerXmlComments: true);
+    }
+
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name        = "Authorization",
@@ -318,6 +336,14 @@ builder.Services.AddHttpLogging(logging =>
 
 // ─────────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
+
+// ── OpenAPI Export ────────────────────────────────────────────────────────────
+// Opt-in only: `dotnet run -- --dump-openapi[=path]` writes the spec to docs/api and exits
+// without starting the server, so the committed document can be refreshed from the same
+// pipeline that serves /swagger. Environment-agnostic: AddSwaggerGen is always registered,
+// only the endpoint is Development-gated.
+if (await OpenApiFileWriter.TryWriteAsync(app, args) is { } openApiExitCode)
+    return openApiExitCode;
 
 // ── Database Seeding ──────────────────────────────────────────────────────────
 // Opt-in only: `dotnet run -- --seed` (or `--seed=catalog`) in Development. Never runs

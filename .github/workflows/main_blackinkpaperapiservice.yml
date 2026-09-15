@@ -26,6 +26,33 @@ jobs:
       - name: Build Admin
         run: dotnet build BlackInkPaperAdmin/BlackInkPaperAdmin.csproj --configuration Release
 
+      # Regenerates docs/api/swagger-v1.json from the freshly built app and fails if the
+      # committed copy differs. Without this the spec silently rots the moment someone adds
+      # an endpoint, which is exactly how the storefront's copy fell five endpoints behind.
+      - name: Check committed OpenAPI spec is current
+        env:
+          # The exporter builds the host, which requires a connection string, but never opens
+          # a connection. A placeholder keeps this step working regardless of whether real
+          # credentials live in appsettings.json or in Azure App Settings.
+          ConnectionStrings__DefaultConnection: "Host=localhost;Database=ci;Username=ci;Password=ci"
+        run: |
+          # --no-launch-profile: `dotnet run --project` otherwise applies launchSettings.json,
+          # which pins ASPNETCORE_ENVIRONMENT and applicationUrl. The document is identical
+          # either way, but CI should not depend on a developer-local file.
+          dotnet run --project BlackInkPaperAPIService/BlackInkPaperAPIService.csproj \
+            --configuration Release --no-build --no-launch-profile -- --dump-openapi
+
+          # --porcelain rather than `git diff --exit-code`: that reports clean for an
+          # untracked file, so a spec that was never committed would pass silently.
+          if [ -n "$(git status --porcelain -- docs/api/swagger-v1.json)" ]; then
+            echo "::error::docs/api/swagger-v1.json is out of date or uncommitted."
+            git diff -- docs/api/swagger-v1.json | head -50
+            echo "Run: cd BlackInkPaperAPIService && dotnet run -- --dump-openapi ; then commit."
+            exit 1
+          fi
+          echo "OpenAPI spec is current."
+
+
       - name: Publish API
         run: dotnet publish BlackInkPaperAPIService/BlackInkPaperAPIService.csproj -c Release -o ./publish/api
 

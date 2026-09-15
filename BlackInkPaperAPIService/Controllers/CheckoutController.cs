@@ -1,4 +1,4 @@
-using Application.DTOs.Checkout;
+﻿using Application.DTOs.Checkout;
 using Application.DTOs.Products;
 using BlackInkPaperAPIService.Controllers.Extensions;
 using Common.YourProject.Models;
@@ -22,11 +22,18 @@ public class CheckoutController(
 {
     [HttpPost("preview")]
     [ProducesResponseType<CheckoutPreviewDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Preview([FromBody] CheckoutPreviewRequest request, CancellationToken cancellationToken)
         => this.ToApiResult(await checkoutApplicationService.PreviewAsync(GetUserId(), request, cancellationToken));
 
     [HttpPost("payment-session")]
     [ProducesResponseType<PaymentSessionDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CreatePaymentSession([FromBody] CreatePaymentSessionRequest request, CancellationToken cancellationToken)
     {
         var guard = await RequireVerifiedContactAsync<PaymentSessionDto>(cancellationToken);
@@ -36,11 +43,18 @@ public class CheckoutController(
 
     [HttpPost("verify-payment")]
     [ProducesResponseType<OrderDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> VerifyPayment([FromBody] VerifyRazorpayPaymentRequest request, CancellationToken cancellationToken)
         => this.ToApiResult(await checkoutApplicationService.VerifyPaymentAsync(GetUserId(), request, cancellationToken));
 
     [HttpPost("place-order")]
     [ProducesResponseType<PlaceOrderResponseDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> PlaceOrder([FromBody] PlaceOrderRequest request, CancellationToken cancellationToken)
     {
         var guard = await RequireVerifiedContactAsync<PlaceOrderResponseDto>(cancellationToken);
@@ -50,6 +64,7 @@ public class CheckoutController(
 
     [HttpGet("orders")]
     [ProducesResponseType<PagedResultDto<OrderDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetOrders(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
@@ -58,12 +73,15 @@ public class CheckoutController(
 
     [HttpGet("orders/{orderId:int}")]
     [ProducesResponseType<OrderDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetOrderById(int orderId, CancellationToken cancellationToken)
         => this.ToApiResult(await checkoutApplicationService.GetOrderByIdAsync(GetUserId(), orderId, cancellationToken));
 
     [HttpPost("orders/{orderId:int}/cancel")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CancelOrder(int orderId, CancellationToken cancellationToken)
         => this.ToApiResult(await checkoutApplicationService.CancelOrderAsync(GetUserId(), orderId, cancellationToken));

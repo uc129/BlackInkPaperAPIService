@@ -1,4 +1,4 @@
-using Application.DTOs.UserAuth;
+﻿using Application.DTOs.UserAuth;
 using Asp.Versioning;
 using BlackInkPaperAPIService.Controllers.Extensions;
 using Common.YourProject.Models;
@@ -23,7 +23,9 @@ public class PhoneAuthController(IPhoneAuthService phoneAuthService) : Controlle
     [AllowAnonymous]
     [EnableRateLimiting("otp")]
     [ProducesResponseType<StartPhoneAuthResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
     public async Task<IActionResult> Start([FromBody] StartPhoneAuthRequest request, CancellationToken ct)
         => this.ToApiResult(await phoneAuthService.StartAsync(request, ClientIp, ct));
 
@@ -32,6 +34,7 @@ public class PhoneAuthController(IPhoneAuthService phoneAuthService) : Controlle
     [EnableRateLimiting("auth")]
     [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Verify([FromBody] VerifyPhoneAuthRequest request, CancellationToken ct)
         => this.ToApiResult(await phoneAuthService.VerifyAsync(request, ct));
 
@@ -39,14 +42,22 @@ public class PhoneAuthController(IPhoneAuthService phoneAuthService) : Controlle
     [Authorize]
     [EnableRateLimiting("otp")]
     [ProducesResponseType<StartPhoneAuthResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
     public async Task<IActionResult> StartLink([FromBody] StartPhoneAuthRequest request, CancellationToken ct)
         => this.ToApiResult(await phoneAuthService.StartPhoneLinkAsync(request, ClientIp, ct));
 
     [HttpPost("link")]
     [Authorize]
     [EnableRateLimiting("auth")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType<string>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Link([FromBody] VerifyPhoneAuthRequest request, CancellationToken ct)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
