@@ -30,7 +30,7 @@ dotnet test BlackInkPaperAPIService.Tests/BlackInkPaperAPIService.Tests.csproj -
 dotnet test BlackInkPaperAPIService.Tests/BlackInkPaperAPIService.Tests.csproj --filter Category=Integration
 ```
 
-CI/CD deploys the API only (not Admin) to Azure Web App on push to `main`.
+CI/CD deploys both the API and the Admin portal to Azure Web Apps on push to `main`.
 
 ## Architecture
 
@@ -70,7 +70,7 @@ All API responses are wrapped in `ServiceResponse<T>` (Common layer) with `Succe
 
 ## Payments & Pricing
 
-Razorpay is the payment gateway (Indian market). Webhook endpoint: `POST /api/razorpay/webhook`.
+Razorpay is the payment gateway (Indian market). Webhook endpoint: `POST /api/payments/razorpay/webhook`.
 
 Shipping cost formula (India-specific, INR):
 - Base: ₹99 flat + ₹25/item + ₹40/kg

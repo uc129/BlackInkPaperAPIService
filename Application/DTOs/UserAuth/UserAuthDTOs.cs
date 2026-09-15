@@ -19,13 +19,16 @@ namespace Application.DTOs.UserAuth
         string? RefreshToken = null,
         int ExpiresIn = 0);
 
+    // Email is nullable because a phone-first account may never have one.
     public record UserProfileDto(
         string Id,
-        string Email,
+        string? Email,
+        string? PhoneNumber,
         string FullName,
         string? ArtistPortfolioUrl,
         IReadOnlyList<string> Roles,
-        bool EmailConfirmed);
+        bool EmailConfirmed,
+        bool PhoneNumberConfirmed);
 
     public record UpdateProfileRequest(
         [Required][MaxLength(100)] string FullName,

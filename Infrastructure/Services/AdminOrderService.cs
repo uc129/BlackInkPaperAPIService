@@ -7,10 +7,24 @@ using Infrastructure.Mappers;
 
 namespace Infrastructure.Services;
 
-public class AdminOrderService(IOrderRepository orderRepository) : IAdminOrderService
+public class AdminOrderService(
+    IOrderRepository orderRepository,
+    IOrderNotificationService orderNotifications) : IAdminOrderService
 {
     private static readonly HashSet<string> ValidStatuses =
         ["PendingPayment", "Confirmed", "Shipped", "Delivered", "Cancelled", "Paid", "Failed"];
+
+    /// <summary>
+    /// The transitions worth telling a customer about. "Confirmed" is absent on purpose: the
+    /// customer already got a confirmation when payment was captured, and announcing the
+    /// admin-side confirmation too would be the same news twice.
+    /// </summary>
+    private static readonly Dictionary<string, OrderNotificationEvent> NotifiableStatuses = new()
+    {
+        ["Shipped"]   = OrderNotificationEvent.Shipped,
+        ["Delivered"] = OrderNotificationEvent.Delivered,
+        ["Cancelled"] = OrderNotificationEvent.Cancelled,
+    };
 
     private static readonly Dictionary<string, HashSet<string>> AllowedTransitions = new()
     {
@@ -98,6 +112,10 @@ public class AdminOrderService(IOrderRepository orderRepository) : IAdminOrderSe
                 return ServiceResponse<OrderDto>.Fail("Status update failed.", statusCode: 500, errorCode: "status_update_failed");
 
             order.Status = request.Status;
+
+            if (NotifiableStatuses.TryGetValue(request.Status, out var notificationEvent))
+                await orderNotifications.EnqueueAsync(order, notificationEvent, CancellationToken.None);
+
             return ServiceResponse<OrderDto>.Ok(CheckoutDtoMapper.ToDto(order), "Order status updated.");
         }
         catch (Exception ex)

@@ -4,6 +4,7 @@ using Common.YourProject.Models;
 using Infrastructure.Contracts.Repositories;
 using Infrastructure.Contracts.Services;
 using Infrastructure.Persistence;
+using Infrastructure.Services.Email;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -26,15 +27,27 @@ namespace BlackInkPaperAPIService.Controllers
         ITokenBlackListRepo tokenblacklist,
         IEmailService emailService,
         IRefreshTokenRepository refreshTokenRepo,
+        AccountLinkBuilder linkBuilder,
         IConfiguration config) : ControllerBase
     {
         [HttpPost("register")]
+        [ProducesResponseType<string>(StatusCodes.Status201Created)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> Register(RegisterRequest request)
         {
             string[] allowedRoles = ["Artist", "User"];
 
             if (!allowedRoles.Contains(request.Role, StringComparer.OrdinalIgnoreCase))
                 return this.ToApiResult(ServiceResponse<string>.Fail($"User cannot be assigned to the role: {request.Role}", statusCode: 400));
+
+            // Identity's built-in duplicate-email check no longer runs: User.RequireUniqueEmail
+            // has to stay false so phone-only accounts (which have no email) can be created at
+            // all. Catching the collision here keeps the 409 — without it the unique partial
+            // index on NormalizedEmail surfaces the same condition as a 500.
+            if (await userManager.FindByEmailAsync(request.Email) is not null)
+                return this.ToApiResult(ServiceResponse<string>.Fail(
+                    "An account with that email already exists.", statusCode: 409, errorCode: "email_already_registered"));
 
             var user = new AppIdentityUser
             {
@@ -54,17 +67,17 @@ namespace BlackInkPaperAPIService.Controllers
                 await userManager.AddToRoleAsync(user, request.Role);
 
             var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+            var confirmLink = linkBuilder.ConfirmEmail(request.Email, token);
+            var confirmEmail = AccountEmailTemplates.ConfirmEmail(confirmLink, request.FullName);
             await emailService.SendAsync(
-                request.Email,
-                "Confirm your email",
-                $"<p>Use this token to confirm your email: <code>{Uri.EscapeDataString(token)}</code></p>" +
-                $"<p>Or call: POST /api/accounts/confirm-email with your email and this token.</p>",
-                HttpContext.RequestAborted);
+                request.Email, confirmEmail.Subject, confirmEmail.HtmlBody, HttpContext.RequestAborted);
 
             return this.ToApiResult(ServiceResponse<string>.Ok("User registered successfully", "Registration Successful", 201));
         }
 
         [HttpPost("login")]
+        [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             var user = await userManager.FindByEmailAsync(request.Email);
@@ -82,6 +95,8 @@ namespace BlackInkPaperAPIService.Controllers
 
         [HttpPost("logout")]
         [Authorize]
+        [ProducesResponseType<string>(StatusCodes.Status200OK)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
         public IActionResult Logout()
         {
             return this.ToApiResult(ServiceResponse<string>.Ok("Logged out successfully. Please remove your token."));
@@ -89,8 +104,18 @@ namespace BlackInkPaperAPIService.Controllers
 
         [HttpPost("logout-secure")]
         [Authorize]
+        [ProducesResponseType<string>(StatusCodes.Status200OK)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> SecureLogout()
         {
+            // Both halves of the credential have to go. Blacklisting the access token alone
+            // leaves the refresh token live for its full 30 days, so anyone holding it could
+            // mint a new access token immediately after the "secure" logout.
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!string.IsNullOrWhiteSpace(userId))
+                await refreshTokenRepo.RevokeAllForUserAsync(userId, HttpContext.RequestAborted);
+
             var tokenId = User.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
             var expiryClaim = User.FindFirst("exp")?.Value;
 
@@ -100,12 +125,18 @@ namespace BlackInkPaperAPIService.Controllers
                 var response = await tokenblacklist.AddTokenToBlackList(tokenId, expiryDate);
                 return this.ToApiResult(response);
             }
-            return this.ToApiResult(ServiceResponse<string>.Fail("User Claim Not Found!"));
+
+            // Refresh tokens are already revoked above, so the session is ended either way —
+            // only the access token survives, and just until it expires.
+            return this.ToApiResult(ServiceResponse<string>.Fail(
+                "User Claim Not Found!", statusCode: 400, errorCode: "token_claims_missing"));
         }
 
         [HttpGet("profile")]
         [Authorize]
         [ProducesResponseType<UserProfileDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetProfile()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -114,13 +145,16 @@ namespace BlackInkPaperAPIService.Controllers
                 return this.ToApiResult(ServiceResponse<UserProfileDto>.Fail("User not found.", statusCode: 404, errorCode: "user_not_found"));
 
             var roles = (await userManager.GetRolesAsync(user)).ToList();
-            var dto = new UserProfileDto(user.Id, user.Email ?? string.Empty, user.FullName ?? string.Empty, user.ArtistPortfolioUrl, roles, user.EmailConfirmed);
+            var dto = new UserProfileDto(user.Id, user.Email, user.PhoneNumber, user.FullName ?? string.Empty, user.ArtistPortfolioUrl, roles, user.EmailConfirmed, user.PhoneNumberConfirmed);
             return this.ToApiResult(ServiceResponse<UserProfileDto>.Ok(dto));
         }
 
         [HttpPatch("profile")]
         [Authorize]
         [ProducesResponseType<UserProfileDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -138,14 +172,54 @@ namespace BlackInkPaperAPIService.Controllers
             }
 
             var roles = (await userManager.GetRolesAsync(user)).ToList();
-            var dto = new UserProfileDto(user.Id, user.Email ?? string.Empty, user.FullName ?? string.Empty, user.ArtistPortfolioUrl, roles, user.EmailConfirmed);
+            var dto = new UserProfileDto(user.Id, user.Email, user.PhoneNumber, user.FullName ?? string.Empty, user.ArtistPortfolioUrl, roles, user.EmailConfirmed, user.PhoneNumberConfirmed);
             return this.ToApiResult(ServiceResponse<UserProfileDto>.Ok(dto, "Profile updated."));
+        }
+
+        /// <summary>
+        /// Adds an email to an account that was created from a phone number, giving it a
+        /// second way to sign in and a route for receipts. The address is unconfirmed until
+        /// the emailed token is redeemed, exactly as at registration.
+        /// </summary>
+        [HttpPost("email/link")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> LinkEmail([FromBody] LinkEmailRequest request)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var user = userId is null ? null : await userManager.FindByIdAsync(userId);
+            if (user is null)
+                return this.ToApiResult(ServiceResponse<string>.Fail("User not found.", statusCode: 404, errorCode: "user_not_found"));
+
+            var existing = await userManager.FindByEmailAsync(request.Email);
+            if (existing is not null && existing.Id != user.Id)
+                return this.ToApiResult(ServiceResponse<string>.Fail(
+                    "That email is already linked to another account.", statusCode: 409, errorCode: "email_already_registered"));
+
+            var setResult = await userManager.SetEmailAsync(user, request.Email);
+            if (!setResult.Succeeded)
+                return this.ToApiResult(ServiceResponse<string>.Fail(
+                    string.Join(", ", setResult.Errors.Select(e => e.Description)),
+                    statusCode: 400, errorCode: "email_link_failed"));
+
+            var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+            var confirmLink = linkBuilder.ConfirmEmail(request.Email, token);
+            var linkedEmail = AccountEmailTemplates.ConfirmLinkedEmail(confirmLink);
+            await emailService.SendAsync(
+                request.Email, linkedEmail.Subject, linkedEmail.HtmlBody, HttpContext.RequestAborted);
+
+            return this.ToApiResult(ServiceResponse<string>.Ok("Confirmation email sent."));
         }
 
         [HttpPost("change-password")]
         [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -172,12 +246,10 @@ namespace BlackInkPaperAPIService.Controllers
             if (user is not null)
             {
                 var token = await userManager.GeneratePasswordResetTokenAsync(user);
-                var link = $"reset-password?email={Uri.EscapeDataString(request.Email)}&token={Uri.EscapeDataString(token)}";
+                var link = linkBuilder.ResetPassword(request.Email, token);
+                var resetEmail = AccountEmailTemplates.PasswordReset(link);
                 await emailService.SendAsync(
-                    request.Email,
-                    "Reset your password",
-                    $"<p>Click the link to reset your password: <a href=\"{link}\">{link}</a></p>",
-                    HttpContext.RequestAborted);
+                    request.Email, resetEmail.Subject, resetEmail.HtmlBody, HttpContext.RequestAborted);
             }
 
             return this.ToApiResult(ServiceResponse<string>.Ok("If that email is registered, a reset link has been sent."));

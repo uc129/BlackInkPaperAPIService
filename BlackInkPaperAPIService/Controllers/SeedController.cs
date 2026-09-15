@@ -1,166 +1,41 @@
-using Infrastructure.Persistence;
-using Infrastructure.Persistence.Data_Seed;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
-using System.Data;
-using Dapper;
 using Asp.Versioning;
+using Infrastructure.Persistence.Seeding;
+using Microsoft.AspNetCore.Mvc;
 
 namespace BlackInkPaperAPIService.Controllers;
 
+/// <summary>
+/// Development-only seeding. Delegates to <see cref="ISeedRunner"/>, the same component the
+/// `dotnet run -- --seed` command line uses, so HTTP and CLI can never drift apart.
+/// Outside Development every action returns 404, as though the controller did not exist.
+/// </summary>
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/seed")]
-public class SeedController(
-    IDapperContext dapperContext,
-    IServiceProvider serviceProvider,
-    IWebHostEnvironment env) : ControllerBase
+public class SeedController(ISeedRunner seedRunner, IWebHostEnvironment env) : ControllerBase
 {
-    [HttpPost("all")]
-    public async Task<IActionResult> SeedAll()
+    /// <summary>Lists the seed sets this build knows how to run.</summary>
+    [HttpGet]
+    public IActionResult ListSets()
+        => env.IsDevelopment() ? Ok(new { Sets = seedRunner.AvailableSets }) : NotFound();
+
+    /// <summary>
+    /// Runs a seed set: identity, catalog, artwork or all. Every set starts by applying EF
+    /// Core migrations, so it works against a completely empty database.
+    /// </summary>
+    [HttpPost("{set}")]
+    public async Task<IActionResult> Run(string set, CancellationToken ct)
     {
-        if (!env.IsDevelopment())
-        {
-            return Forbid("Seeding is only allowed in development.");
-        }
+        if (!env.IsDevelopment()) return NotFound();
 
-        try
-        {
-            // 1. Clear Tables
-            // await ExecuteSqlScript("00_ClearTables.sql");
+        var report = await seedRunner.RunAsync(set, ct);
 
-            // 2. Seed Identity (C# for Hashing)
-            await SeedIdentity.SeedRolesAsync(serviceProvider);
-            await SeedIdentity.SeedAdminUserAsync(serviceProvider);
-            
-            // Seed a default artist user for testing catalog
-            // await SeedArtistUser("user-artist", "artist@artist.com", "Artist@123!");
-            //
-            // // 3. Seed Catalog & Commerce
-            // await ExecuteSqlScript("20_SeedCatalog.sql");
-            // await ExecuteSqlScript("30_SeedCommerce.sql");
+        if (report.Success)
+            return Ok(new { report.Set, StepsRun = report.StepsRun, Message = "Seeding completed." });
 
-            return Ok(new { Message = "Database cleared and seeded successfully." });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { Error = ex.Message, Details = ex.ToString() });
-        }
-    }
-
-    
-    [HttpPost("illustrations")]
-    public async Task<IActionResult> SeedIllustrations()
-    {
-        if (!env.IsDevelopment())
-            return Forbid("Seeding is only allowed in development.");
-
-        try
-        {
-            await ExecuteSqlScript("SeedIllustrationProducts.sql");
-            return Ok(new { Message = "Illustration products seeded successfully." });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { Error = ex.Message, Details = ex.ToString() });
-        }
-    }
-
-    [HttpPost("identity")]
-    public async Task<IActionResult> SeedIdentities()
-    {
-        if (!env.IsDevelopment())
-        {
-            return Forbid("Seeding is only allowed in development.");
-        }
-
-        try
-        {
-            // 1. Clear Tables
-            // await ExecuteSqlScript("00_ClearTables.sql");
-
-            // 2. Seed Identity (C# for Hashing)
-            await SeedIdentity.SeedRolesAsync(serviceProvider);
-            await SeedIdentity.SeedAdminUserAsync(serviceProvider);
-            
-            // Seed a default artist user for testing catalog
-            await SeedArtistUser("user-artist", "artist@artist.com", "Artist@123!");
-
-            // 3. Seed Catalog & Commerce
-            // await ExecuteSqlScript("20_SeedCatalog.sql");
-            // await ExecuteSqlScript("30_SeedCommerce.sql");
-
-            return Ok(new { Message = "Database cleared and identity seeded successfully." });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { Error = ex.Message, Details = ex.ToString() });
-        }
-    }
-
-    private async Task SeedArtistUser(string userId, string email, string password)
-    {
-        var userManager = serviceProvider.GetRequiredService<UserManager<AppIdentityUser>>();
-        
-        var user = await userManager.FindByEmailAsync(email);
-        if (user == null)
-        {
-            user = new AppIdentityUser
-            {
-                Id = userId, // Using specific ID to match SQL seeds if necessary
-                UserName = email,
-                Email = email,
-                FullName = "Default Artist",
-                EmailConfirmed = true
-            };
-
-            var result = await userManager.CreateAsync(user, password);
-            if (result.Succeeded)
-            {
-                await userManager.AddToRoleAsync(user, "Artist");
-            }
-        }
-    }
-
-    private async Task ExecuteSqlScript(string scriptName)
-    {
-        var path = Path.Combine(Directory.GetCurrentDirectory(), "..", "Infrastructure", "Persistence", "Seeds", scriptName);
-        if (!System.IO.File.Exists(path))
-        {
-            // Try alternative path if needed (depending on where Directory.GetCurrentDirectory() points)
-             path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Persistence", "Seeds", scriptName);
-        }
-        
-        // Fallback for different build environments
-        if (!System.IO.File.Exists(path))
-        {
-             var root = FindProjectRoot(Directory.GetCurrentDirectory());
-             path = Path.Combine(root, "Infrastructure", "Persistence", "Seeds", scriptName);
-        }
-
-        var sql = await System.IO.File.ReadAllTextAsync(path);
-        
-        using var connection = dapperContext.CreateConnection();
-        connection.Open();
-        
-        // Split by GO if necessary, but Dapper can handle multiple statements usually.
-        // However, some scripts might have GO which SqlClient doesn't like.
-        var batches = sql.Split(new[] { "GO", "go", "Go", "gO" }, StringSplitOptions.RemoveEmptyEntries);
-        
-        foreach (var batch in batches)
-        {
-            if (string.IsNullOrWhiteSpace(batch)) continue;
-            await connection.ExecuteAsync(batch);
-        }
-    }
-
-    private static string FindProjectRoot(string currentDir)
-    {
-        var dir = new DirectoryInfo(currentDir);
-        while (dir != null && !dir.GetFiles("*.sln").Any())
-        {
-            dir = dir.Parent;
-        }
-        return dir?.FullName ?? currentDir;
+        // An unknown set name is a bad request; a step that blew up is a server-side failure.
+        return seedRunner.AvailableSets.Contains(set, StringComparer.OrdinalIgnoreCase)
+            ? StatusCode(500, new { report.Set, report.StepsRun, report.Error })
+            : BadRequest(new { report.Set, report.Error });
     }
 }

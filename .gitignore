@@ -179,6 +179,9 @@ DocProject/Help/html
 # Click-Once directory
 publish/
 BlackInkPaperAPIService/wwwroot/assets/illustrations
+# Source artwork is delivered via Cloudinary, not committed (19MB+ of originals)
+BlackInkPaperAPIService/wwwroot/assets/blackinkpaper-art
+.DS_Store
 
 # Publish Web Output
 *.[Pp]ublish.xml

@@ -1,4 +1,4 @@
-using Application.DTOs.Cart;
+﻿using Application.DTOs.Cart;
 using Infrastructure.Contracts.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,16 +17,24 @@ public class CartController(
 {
     [HttpGet]
     [ProducesResponseType<CartResponseDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Get(CancellationToken cancellationToken)
         => this.ToApiResult(await cartApplicationService.GetActiveCartAsync(GetUserId(), cancellationToken));
 
     [HttpPost("items")]
     [ProducesResponseType<CartResponseDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> AddItem([FromBody] AddCartItemRequest request, CancellationToken cancellationToken)
         => this.ToApiResult(await cartApplicationService.AddItemAsync(GetUserId(), request, cancellationToken));
 
     [HttpPut("items/{cartItemId:int}")]
     [ProducesResponseType<CartResponseDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateQuantity(
         int cartItemId,
         [FromBody] UpdateCartItemQuantityRequest request,
@@ -35,11 +43,15 @@ public class CartController(
 
     [HttpDelete("items/{cartItemId:int}")]
     [ProducesResponseType<CartResponseDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RemoveItem(int cartItemId, CancellationToken cancellationToken)
         => this.ToApiResult(await cartApplicationService.RemoveItemAsync(GetUserId(), cartItemId, cancellationToken));
 
     [HttpDelete]
     [ProducesResponseType<CartResponseDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Clear(CancellationToken cancellationToken)
         => this.ToApiResult(await cartApplicationService.ClearAsync(GetUserId(), cancellationToken));
 

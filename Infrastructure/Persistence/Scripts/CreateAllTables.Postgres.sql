@@ -1,70 +1,9 @@
 -- PostgreSQL Migration Script for BlackInkPaperAPIService
 
--- -- 1. Identity Tables
--- CREATE TABLE IF NOT EXISTS Roles (
---     Id VARCHAR(450) PRIMARY KEY,
---     Name VARCHAR(256),
---     NormalizedName VARCHAR(256),
---     ConcurrencyStamp TEXT
--- );
--- 
--- CREATE TABLE IF NOT EXISTS Users (
---     Id VARCHAR(450) PRIMARY KEY,
---     FullName TEXT,
---     ArtistPortfolioUrl TEXT,
---     UserName VARCHAR(256),
---     NormalizedUserName VARCHAR(256),
---     Email VARCHAR(256),
---     NormalizedEmail VARCHAR(256),
---     EmailConfirmed BOOLEAN NOT NULL DEFAULT FALSE,
---     PasswordHash TEXT,
---     SecurityStamp TEXT,
---     ConcurrencyStamp TEXT,
---     PhoneNumber TEXT,
---     PhoneNumberConfirmed BOOLEAN NOT NULL DEFAULT FALSE,
---     TwoFactorEnabled BOOLEAN NOT NULL DEFAULT FALSE,
---     LockoutEnd TIMESTAMPTZ,
---     LockoutEnabled BOOLEAN NOT NULL DEFAULT FALSE,
---     AccessFailedCount INTEGER NOT NULL DEFAULT 0
--- );
--- 
--- CREATE TABLE IF NOT EXISTS AspNetRoleClaims (
---     Id SERIAL PRIMARY KEY,
---     RoleId VARCHAR(450) NOT NULL REFERENCES Roles(Id) ON DELETE CASCADE,
---     ClaimType TEXT,
---     ClaimValue TEXT
--- );
--- 
--- CREATE TABLE IF NOT EXISTS AspNetUserClaims (
---     Id SERIAL PRIMARY KEY,
---     UserId VARCHAR(450) NOT NULL REFERENCES Users(Id) ON DELETE CASCADE,
---     ClaimType TEXT,
---     ClaimValue TEXT
--- );
--- 
--- CREATE TABLE IF NOT EXISTS AspNetUserLogins (
---     LoginProvider VARCHAR(450) NOT NULL,
---     ProviderKey VARCHAR(450) NOT NULL,
---     ProviderDisplayName TEXT,
---     UserId VARCHAR(450) NOT NULL REFERENCES Users(Id) ON DELETE CASCADE,
---     PRIMARY KEY (LoginProvider, ProviderKey)
--- );
--- 
--- CREATE TABLE IF NOT EXISTS AspNetUserRoles (
---     UserId VARCHAR(450) NOT NULL REFERENCES Users(Id) ON DELETE CASCADE,
---     RoleId VARCHAR(450) NOT NULL REFERENCES Roles(Id) ON DELETE CASCADE,
---     PRIMARY KEY (UserId, RoleId)
--- );
--- 
--- CREATE TABLE IF NOT EXISTS AspNetUserTokens (
---     UserId VARCHAR(450) NOT NULL REFERENCES Users(Id) ON DELETE CASCADE,
---     LoginProvider VARCHAR(450) NOT NULL,
---     Name VARCHAR(450) NOT NULL,
---     Value TEXT,
---     PRIMARY KEY (UserId, LoginProvider, Name)
--- );
+-- Identity tables (Users, Roles, AspNetUser*) are created by EF Core migrations only
+-- (Infrastructure/Migrations). Apply them with `dotnet ef database update` before this
+-- script. Do not add identity DDL here.
 
--- 2. Catalog Tables
 CREATE TABLE IF NOT EXISTS ArtistProfiles (
     Id SERIAL PRIMARY KEY,
     UserId VARCHAR(450) NOT NULL,
@@ -367,19 +306,19 @@ CREATE TABLE IF NOT EXISTS TokenBlacklist (
 );
 
 -- Indexes
-CREATE INDEX IX_Users_NormalizedUserName ON Users(NormalizedUserName);
-CREATE INDEX IX_Users_NormalizedEmail ON Users(NormalizedEmail);
-CREATE INDEX IX_ArtistProfiles_UserId ON ArtistProfiles(UserId);
-CREATE INDEX IX_ProductCategories_Slug ON ProductCategories(Slug);
-CREATE INDEX IX_ProductSubCategories_Slug ON ProductSubCategories(Slug);
-CREATE INDEX IX_Products_Slug ON Products(Slug);
-CREATE INDEX IX_Products_ProductId ON Products(ProductId);
-CREATE INDEX IX_ProductImages_ProductId ON ProductImages(ProductId);
-CREATE INDEX IX_ProductVariants_ProductId ON ProductVariants(ProductId);
-CREATE INDEX IX_ShippingAddresses_UserId ON ShippingAddresses(UserId);
-CREATE INDEX IX_Orders_UserId ON Orders(UserId);
-CREATE INDEX IX_Orders_RazorpayOrderId ON Orders(RazorpayOrderId);
-CREATE INDEX IX_OrderItems_OrderId ON OrderItems(OrderId);
-CREATE INDEX IX_Carts_UserId_Status ON Carts(UserId, Status);
-CREATE INDEX IX_CartItems_CartId ON CartItems(CartId);
-CREATE INDEX IX_InventoryTransactions_OrderId ON InventoryTransactions(OrderId);
+-- Identity indexes are owned by the EF Core migration (UserNameIndex / EmailIndex on "Users").
+-- Recreating them here also fails: EF quotes the table as "Users", so unquoted Users folds to users.
+CREATE INDEX IF NOT EXISTS IX_ArtistProfiles_UserId ON ArtistProfiles(UserId);
+CREATE INDEX IF NOT EXISTS IX_ProductCategories_Slug ON ProductCategories(Slug);
+CREATE INDEX IF NOT EXISTS IX_ProductSubCategories_Slug ON ProductSubCategories(Slug);
+CREATE INDEX IF NOT EXISTS IX_Products_Slug ON Products(Slug);
+CREATE INDEX IF NOT EXISTS IX_Products_ProductId ON Products(ProductId);
+CREATE INDEX IF NOT EXISTS IX_ProductImages_ProductId ON ProductImages(ProductId);
+CREATE INDEX IF NOT EXISTS IX_ProductVariants_ProductId ON ProductVariants(ProductId);
+CREATE INDEX IF NOT EXISTS IX_ShippingAddresses_UserId ON ShippingAddresses(UserId);
+CREATE INDEX IF NOT EXISTS IX_Orders_UserId ON Orders(UserId);
+CREATE INDEX IF NOT EXISTS IX_Orders_RazorpayOrderId ON Orders(RazorpayOrderId);
+CREATE INDEX IF NOT EXISTS IX_OrderItems_OrderId ON OrderItems(OrderId);
+CREATE INDEX IF NOT EXISTS IX_Carts_UserId_Status ON Carts(UserId, Status);
+CREATE INDEX IF NOT EXISTS IX_CartItems_CartId ON CartItems(CartId);
+CREATE INDEX IF NOT EXISTS IX_InventoryTransactions_OrderId ON InventoryTransactions(OrderId);

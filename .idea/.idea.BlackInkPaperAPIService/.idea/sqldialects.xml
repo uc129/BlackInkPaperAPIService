@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="SqlDialectMappings">
+    <file url="file://$PROJECT_DIR$/Infrastructure/Persistence/Scripts/20260430_AddImageMetadataAndVariantLink.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/Infrastructure/Persistence/Scripts/20260508_AddAuditLogsAndRefreshTokens.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/Infrastructure/Persistence/Scripts/20260826_RestructureCategoriesOriginalsPrints.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/Infrastructure/Persistence/Scripts/20260830_AddContactSubmissions.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/Infrastructure/Persistence/Scripts/CreateAllTables.Postgres.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/Infrastructure/Persistence/Seeds/SeedAll.Postgres.sql" dialect="PostgreSQL" />
-    <file url="file://$PROJECT_DIR$/Infrastructure/Persistence/Seeds/SeedIllustrationProducts.sql" dialect="PostgreSQL" />
   </component>
 </project>

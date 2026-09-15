@@ -18,10 +18,18 @@ namespace Infrastructure.Services
             {
                 new(JwtRegisteredClaimNames.Sub, user.Id),
                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new(JwtRegisteredClaimNames.Email, user.Email!),
                 new(ClaimTypes.NameIdentifier, user.Id),
                 new("FullName", user.FullName ?? "")
             };
+
+            // Email and phone are both optional now that an account can be created from
+            // either one. Claim's constructor throws on a null value, so neither can be
+            // added unconditionally.
+            if (!string.IsNullOrWhiteSpace(user.Email))
+                claims.Add(new Claim(JwtRegisteredClaimNames.Email, user.Email));
+
+            if (!string.IsNullOrWhiteSpace(user.PhoneNumber))
+                claims.Add(new Claim(JwtRegisteredClaimNames.PhoneNumber, user.PhoneNumber));
 
             foreach (var role in roles)
                 claims.Add(new Claim(ClaimTypes.Role, role));

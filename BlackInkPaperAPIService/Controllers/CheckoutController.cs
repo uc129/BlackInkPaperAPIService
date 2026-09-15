@@ -1,4 +1,4 @@
-using Application.DTOs.Checkout;
+﻿using Application.DTOs.Checkout;
 using Application.DTOs.Products;
 using BlackInkPaperAPIService.Controllers.Extensions;
 using Common.YourProject.Models;
@@ -22,34 +22,49 @@ public class CheckoutController(
 {
     [HttpPost("preview")]
     [ProducesResponseType<CheckoutPreviewDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Preview([FromBody] CheckoutPreviewRequest request, CancellationToken cancellationToken)
         => this.ToApiResult(await checkoutApplicationService.PreviewAsync(GetUserId(), request, cancellationToken));
 
     [HttpPost("payment-session")]
     [ProducesResponseType<PaymentSessionDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CreatePaymentSession([FromBody] CreatePaymentSessionRequest request, CancellationToken cancellationToken)
     {
-        var guard = await RequireEmailConfirmedAsync<PaymentSessionDto>(cancellationToken);
+        var guard = await RequireVerifiedContactAsync<PaymentSessionDto>(cancellationToken);
         if (guard is not null) return guard;
         return this.ToApiResult(await checkoutApplicationService.CreatePaymentSessionAsync(GetUserId(), request, cancellationToken));
     }
 
     [HttpPost("verify-payment")]
     [ProducesResponseType<OrderDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> VerifyPayment([FromBody] VerifyRazorpayPaymentRequest request, CancellationToken cancellationToken)
         => this.ToApiResult(await checkoutApplicationService.VerifyPaymentAsync(GetUserId(), request, cancellationToken));
 
     [HttpPost("place-order")]
     [ProducesResponseType<PlaceOrderResponseDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> PlaceOrder([FromBody] PlaceOrderRequest request, CancellationToken cancellationToken)
     {
-        var guard = await RequireEmailConfirmedAsync<PlaceOrderResponseDto>(cancellationToken);
+        var guard = await RequireVerifiedContactAsync<PlaceOrderResponseDto>(cancellationToken);
         if (guard is not null) return guard;
         return this.ToApiResult(await checkoutApplicationService.PlaceOrderAsync(GetUserId(), request, cancellationToken));
     }
 
     [HttpGet("orders")]
     [ProducesResponseType<PagedResultDto<OrderDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetOrders(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
@@ -58,12 +73,15 @@ public class CheckoutController(
 
     [HttpGet("orders/{orderId:int}")]
     [ProducesResponseType<OrderDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetOrderById(int orderId, CancellationToken cancellationToken)
         => this.ToApiResult(await checkoutApplicationService.GetOrderByIdAsync(GetUserId(), orderId, cancellationToken));
 
     [HttpPost("orders/{orderId:int}/cancel")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CancelOrder(int orderId, CancellationToken cancellationToken)
         => this.ToApiResult(await checkoutApplicationService.CancelOrderAsync(GetUserId(), orderId, cancellationToken));
@@ -71,13 +89,18 @@ public class CheckoutController(
     private string GetUserId()
         => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
 
-    private async Task<IActionResult?> RequireEmailConfirmedAsync<T>(CancellationToken ct)
+    /// <summary>
+    /// An order needs one verified way to reach the customer — not specifically an email.
+    /// Gating on EmailConfirmed alone would reject every phone-first account, which has no
+    /// email at all and could therefore never check out.
+    /// </summary>
+    private async Task<IActionResult?> RequireVerifiedContactAsync<T>(CancellationToken ct)
     {
         var user = await userManager.FindByIdAsync(GetUserId());
-        if (user is not null && !user.EmailConfirmed)
+        if (user is not null && !user.EmailConfirmed && !user.PhoneNumberConfirmed)
             return this.ToApiResult(ServiceResponse<T>.Fail(
-                "Please confirm your email address before placing an order.",
-                statusCode: 403, errorCode: "email_not_confirmed"));
+                "Please confirm your email address or phone number before placing an order.",
+                statusCode: 403, errorCode: "contact_not_verified"));
         return null;
     }
 }

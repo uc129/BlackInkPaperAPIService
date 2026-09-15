@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="CloudinaryDotNet" Version="1.29.0" />
     <PackageReference Include="Dapper" Version="2.1.72" />
+    <PackageReference Include="libphonenumber-csharp" Version="9.0.38" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.0" />
     <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.17.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.0" />
@@ -26,6 +27,10 @@
 
   <ItemGroup>
     <None Update="Persistence\Seeds\*.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <!-- The seed runner applies schema scripts too, so they must reach the output folder. -->
+    <None Update="Persistence\Scripts\*.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
